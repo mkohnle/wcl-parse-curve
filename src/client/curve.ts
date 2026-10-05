@@ -43,14 +43,30 @@ export function buildCurve(
   { total, complete, anchor }: { total: number | null; complete: boolean; anchor: Anchor | null },
 ): Curve {
   const exact = points[points.length - 1][0];
-  if (complete) return model(points, exact, null);
-  if (total) return model(points, Math.max(total, exact + 1), anchor);
+  if (complete) return model(withAnchor(points, exact, anchor), exact, null);
+  if (total) {
+    const n = Math.max(total, exact + 1);
+    return model(withAnchor(points, n, anchor), n, anchor);
+  }
   if (anchor) return model(points, solveTotal(points, anchor), anchor);
   return model(points, exact, null);
 }
 
 /** Target parse for an anchor: the log floors, so the true value lies in [parse, parse + 1). */
 const anchorTarget = (a: Anchor) => Math.min(99.99, a.parse + 0.5);
+
+/** Add the anchor as a point if it falls between sampled pages. */
+function withAnchor(points: Points, n: number, anchor: Anchor | null): Points {
+  if (!anchor) return points;
+  const rank = n * (1 - anchorTarget(anchor) / 100);
+  const i = points.findIndex(([r]) => r > rank);
+  if (i <= 0) return points;
+  const [r1, a1] = points[i - 1];
+  const [r2, a2] = points[i];
+  // inside a sampled page the data is exact; keep it monotonic
+  if (r2 - r1 <= 1 || anchor.amount > a1 || anchor.amount < a2) return points;
+  return [...points.slice(0, i), [rank, anchor.amount], ...points.slice(i)];
+}
 
 /** Population size for which the curve passes through the anchor. */
 function solveTotal(points: Points, anchor: Anchor): number {

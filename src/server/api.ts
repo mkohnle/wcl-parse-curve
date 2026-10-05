@@ -61,12 +61,10 @@ api.get("/distribution", async (req, res) => {
   res.json(await cached(key, 6 * HOUR, () => getDistribution(q)));
 });
 
-/**
- * Pages to sample from the leaderboard. Each page costs ~1 point of the client's
- * hourly API budget (720 by default), so we interpolate between these instead
- * of fetching all 20.
- */
-const SAMPLE_PAGES = [1, 2, 3, 5, 8, 12, 16, MAX_PAGE];
+/** 4 of 20 pages, 1 point each. As accurate as 8 on synthetic data. */
+const SAMPLE_PAGES = [1, 4, 11, MAX_PAGE];
+/** Worst case incl. the search for the last page of a short leaderboard. */
+const DISTRIBUTION_COST = SAMPLE_PAGES.length + 4;
 
 async function getDistribution(q: DistributionQuery): Promise<DistributionResponse> {
   const pages = new Map<number, number[]>();
