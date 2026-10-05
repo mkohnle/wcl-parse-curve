@@ -98,6 +98,9 @@ export interface RawFightRankings {
   hps: { data: RawFightRanking[] } | null;
 }
 
+/** 2 points per rankings field (measured). */
+export const FIGHT_COST = 4;
+
 export async function fetchFightRankings(code: string, fightId: number): Promise<RawFightRankings> {
   const data = await gql<{ reportData: { report: RawFightRankings | null } }>(
     `query FightRankings($code: String!, $fight: Int!) {
@@ -107,6 +110,7 @@ export async function fetchFightRankings(code: string, fightId: number): Promise
       } }
     }`,
     { code, fight: fightId },
+    FIGHT_COST,
   );
   const report = data.reportData.report;
   if (!report) throw new HttpError(404, "Report not found");

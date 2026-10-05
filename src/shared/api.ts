@@ -7,6 +7,14 @@ export interface ApiError {
   error: string;
 }
 
+/** Warcraft Logs API points for the current hour. */
+export interface Budget {
+  limit: number;
+  remaining: number;
+  /** seconds */
+  resetIn: number;
+}
+
 export interface Zone {
   id: number;
   name: string;

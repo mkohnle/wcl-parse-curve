@@ -14,3 +14,5 @@ export const config = {
   wclClientId: required("WCL_CLIENT_ID"),
   wclClientSecret: required("WCL_CLIENT_SECRET"),
 };
+
+export const hasWclCredentials = () => Boolean(config.wclClientId && config.wclClientSecret);

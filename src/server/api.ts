@@ -9,7 +9,9 @@ import type {
 } from "../shared/api.ts";
 import { cached, HOUR, MINUTE } from "./cache.ts";
 import { HttpError, int, str } from "./http.ts";
+import { ensureBudget, getBudget } from "./wcl/client.ts";
 import {
+  FIGHT_COST,
   fetchFightRankings,
   fetchLatestZones,
   fetchRankingAmounts,
@@ -32,6 +34,11 @@ api.get("/health", (_req, res) => {
   res.json({ ok: true });
 });
 
+/** Points left, or null if WCL isn't reachable. */
+api.get("/budget", async (_req, res) => {
+  res.json(await getBudget().catch(() => null));
+});
+
 api.get("/zones", async (_req, res) => {
   res.json(await cached("zones", 6 * HOUR, fetchLatestZones));
 });
@@ -51,7 +58,7 @@ api.get("/distribution", async (req, res) => {
   if (!isName(q.spec)) throw new HttpError(400, `Invalid spec "${q.spec}"`);
 
   const key = ["dist", q.enc, q.diff, q.part, q.bracket, q.metric, q.cls, q.spec].join("|");
-  res.json(await cached(key, HOUR, () => getDistribution(q)));
+  res.json(await cached(key, 6 * HOUR, () => getDistribution(q)));
 });
 
 /**
@@ -94,7 +101,13 @@ async function getDistribution(q: DistributionQuery): Promise<DistributionRespon
 api.get("/report", async (req, res) => {
   const code = str(req.query.code);
   if (!isReportCode(code)) throw new HttpError(400, "Invalid report code");
-  res.json(await cached(`report|${code}`, 10 * MINUTE, () => fetchReport(code)));
+  // short: live logs still gain fights
+  res.json(
+    await cached(`report|${code}`, 15 * MINUTE, async () => {
+      await ensureBudget(1);
+      return fetchReport(code);
+    }),
+  );
 });
 
 api.get("/fight", async (req, res) => {
@@ -102,9 +115,10 @@ api.get("/fight", async (req, res) => {
   const fightId = int(req.query.fight);
   if (!isReportCode(code) || !fightId) throw new HttpError(400, "Invalid parameters");
 
-  const rankings = await cached(`fight|${code}|${fightId}`, 10 * MINUTE, () =>
-    fetchFightRankings(code, fightId),
-  );
+  const rankings = await cached(`fight|${code}|${fightId}`, 10 * MINUTE, async () => {
+    await ensureBudget(FIGHT_COST);
+    return fetchFightRankings(code, fightId);
+  });
   if (req.query.debug) {
     res.json(rankings);
     return;
