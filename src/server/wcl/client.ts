@@ -31,6 +31,9 @@ let token: { value: string; expires: number } | null = null;
 let pendingToken: Promise<string> | null = null;
 
 async function fetchToken(): Promise<string> {
+  if (!hasWclCredentials()) {
+    throw new HttpError(503, "No Warcraft Logs API credentials configured. The demo report still works.");
+  }
   const auth = Buffer.from(`${config.wclClientId}:${config.wclClientSecret}`).toString("base64");
   const res = await fetch(TOKEN_URL, {
     method: "POST",
@@ -43,7 +46,7 @@ async function fetchToken(): Promise<string> {
   if (res.status === 429) throw tripBreaker(res);
   const data = (await res.json().catch(() => ({}))) as { access_token?: string; expires_in?: number };
   if (!res.ok || !data.access_token) {
-    throw new Error(`Warcraft Logs auth failed (${res.status}). Check the credentials in .env`);
+    throw new Error(`Warcraft Logs auth failed (${res.status}). Check the API credentials.`);
   }
   token = { value: data.access_token, expires: Date.now() + ((data.expires_in ?? 3600) - 60) * 1000 };
   return token.value;

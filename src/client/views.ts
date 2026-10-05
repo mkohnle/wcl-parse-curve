@@ -1,6 +1,7 @@
 import type { Fight, Player, ReportResponse, Role } from "../shared/api.ts";
 import type { Curve } from "./curve.ts";
 import { compact, duration, esc, fmt, spaced } from "./format.ts";
+import { DEMO_CODE } from "./report-input.ts";
 import { bossIcon, classColor, difficultyName, specIcon, TIERS, tierColor, zoneIcon } from "./wow.ts";
 
 const img = (src: string, cls: string, fallback?: string, style = "") =>
@@ -15,8 +16,12 @@ export function renderReportHeader(code: string, report: ReportResponse): string
         <h2 class="truncate text-2xl font-bold text-zinc-100">${esc(report.title)}</h2>
         ${zone && zone.name !== report.title ? `<div class="text-zinc-400">${esc(zone.name)}</div>` : ""}
       </div>
-      <a href="https://www.warcraftlogs.com/reports/${esc(code)}" target="_blank" rel="noreferrer"
-         class="label hidden shrink-0 hover:text-gold sm:block">Open on Warcraft Logs ↗</a>
+      ${
+        code === DEMO_CODE
+          ? `<span class="label shrink-0 rounded-sm border border-gold/40 px-2 py-1 text-gold">Demo data</span>`
+          : `<a href="https://www.warcraftlogs.com/reports/${esc(code)}" target="_blank" rel="noreferrer"
+               class="label hidden shrink-0 hover:text-gold sm:block">Open on Warcraft Logs ↗</a>`
+      }
     </div>`;
 }
 

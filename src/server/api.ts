@@ -8,6 +8,7 @@ import type {
   Role,
 } from "../shared/api.ts";
 import { cached, HOUR, MINUTE } from "./cache.ts";
+import { demoFight, demoRankingAmounts, demoReport, isDemoCode, isDemoEncounter } from "./demo.ts";
 import { HttpError, int, str } from "./http.ts";
 import { ensureBudget, getBudget } from "./wcl/client.ts";
 import {
@@ -67,9 +68,13 @@ const SAMPLE_PAGES = [1, 4, 11, MAX_PAGE];
 const DISTRIBUTION_COST = SAMPLE_PAGES.length + 4;
 
 async function getDistribution(q: DistributionQuery): Promise<DistributionResponse> {
+  const demo = isDemoEncounter(q.enc);
+  if (!demo) await ensureBudget(DISTRIBUTION_COST);
+  const fetchPage = async (p: number) => (demo ? demoRankingAmounts(q, p) : fetchRankingAmounts(q, p));
+
   const pages = new Map<number, number[]>();
   const load = async (p: number) => {
-    pages.set(p, await fetchRankingAmounts(q, p));
+    pages.set(p, await fetchPage(p));
     return (pages.get(p) as number[]).length;
   };
 
@@ -98,6 +103,10 @@ async function getDistribution(q: DistributionQuery): Promise<DistributionRespon
 
 api.get("/report", async (req, res) => {
   const code = str(req.query.code);
+  if (isDemoCode(code)) {
+    res.json(demoReport);
+    return;
+  }
   if (!isReportCode(code)) throw new HttpError(400, "Invalid report code");
   // short: live logs still gain fights
   res.json(
@@ -111,6 +120,12 @@ api.get("/report", async (req, res) => {
 api.get("/fight", async (req, res) => {
   const code = str(req.query.code);
   const fightId = int(req.query.fight);
+  if (isDemoCode(code)) {
+    const fight = demoFight(fightId);
+    if (!fight) throw new HttpError(404, "No such fight in the demo report");
+    res.json(fight);
+    return;
+  }
   if (!isReportCode(code) || !fightId) throw new HttpError(400, "Invalid parameters");
 
   const rankings = await cached(`fight|${code}|${fightId}`, 10 * MINUTE, async () => {

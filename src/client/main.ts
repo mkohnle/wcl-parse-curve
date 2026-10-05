@@ -4,7 +4,7 @@ import { getBudget, getDistribution, getFight, getReport } from "./api.ts";
 import { mountChart } from "./chart.ts";
 import { buildCurve } from "./curve.ts";
 import { esc } from "./format.ts";
-import { parseReportInput } from "./report-input.ts";
+import { DEMO_CODE, parseReportInput } from "./report-input.ts";
 import {
   type LabeledParse,
   renderAnalysis,
@@ -21,6 +21,7 @@ const goButton = $<HTMLButtonElement>("go");
 const statusEl = $("status");
 const reportEl = $("report");
 const tooltip = $("tooltip");
+const demoButton = $<HTMLButtonElement>("demo");
 const budgetEl = $("budget");
 
 reportEl.innerHTML = `<div id="report-head"></div><div id="fights"></div><div id="players"></div><div id="analysis"></div>`;
@@ -167,7 +168,7 @@ async function show(next: Selection, push = true) {
       if (!report) headEl.innerHTML = "";
     }
   } finally {
-    showBudget();
+    if (next.code !== DEMO_CODE) showBudget();
   }
 }
 
@@ -200,6 +201,11 @@ form.addEventListener("submit", (e) => {
 
 // load right away when a link is pasted
 urlInput.addEventListener("paste", () => setTimeout(submit));
+
+demoButton.addEventListener("click", () => {
+  urlInput.value = DEMO_CODE;
+  submit();
+});
 
 fightsEl.addEventListener("click", (e) => {
   const btn = (e.target as HTMLElement).closest<HTMLElement>("[data-fight]");
@@ -237,7 +243,8 @@ document.addEventListener(
 
 const initial = readUrl();
 if (initial) {
-  urlInput.value = `https://www.warcraftlogs.com/reports/${initial.code}`;
+  urlInput.value =
+    initial.code === DEMO_CODE ? DEMO_CODE : `https://www.warcraftlogs.com/reports/${initial.code}`;
   show(initial, false);
 } else {
   showBudget();
