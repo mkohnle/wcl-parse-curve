@@ -11,7 +11,7 @@ export async function fetchLatestZones(): Promise<Zone[]> {
   return latest.zones.filter((z) => z.encounters.length).sort((a, b) => b.id - a.id);
 }
 
-/** Amounts of one leaderboard page (100 entries), best first. Empty past the last page. */
+/** One leaderboard page (100 amounts), best first. Empty past the end. */
 export async function fetchRankingAmounts(q: DistributionQuery, page: number): Promise<number[]> {
   const data = await gql<{
     worldData: {
@@ -38,7 +38,7 @@ export async function fetchRankingAmounts(q: DistributionQuery, page: number): P
   );
   const encounter = data.worldData.encounter;
   if (!encounter) throw new HttpError(404, `Unknown encounter ${q.enc}`);
-  // Out-of-range pages come back as { error: "..." } instead of a GraphQL error.
+  // out-of-range pages return { error } instead of failing
   return encounter.characterRankings.rankings?.map((r) => r.amount) ?? [];
 }
 

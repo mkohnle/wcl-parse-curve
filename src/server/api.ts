@@ -23,14 +23,14 @@ import {
 export const api = Router();
 
 const PER_PAGE = 100;
-/** The WCL API refuses pages above this ("The maximum page value supported by the API is 20"). */
+/** WCL refuses pages above 20. */
 const MAX_PAGE = 20;
 
 const isName = (s: string) => /^[A-Za-z]+$/.test(s);
 const isReportCode = (s: string) => /^[A-Za-z0-9]{10,24}$/.test(s);
 const stripSpaces = (s: string) => s.replace(/\s+/g, "");
 
-// For the host's health check; never calls Warcraft Logs.
+// health check, no WCL call
 api.get("/health", (_req, res) => {
   res.json({ ok: true });
 });
@@ -81,7 +81,7 @@ async function getDistribution(q: DistributionQuery): Promise<DistributionRespon
   if (!(await load(1))) throw new HttpError(404, "No rankings found for that selection");
   if (pages.get(1)?.length === PER_PAGE) {
     await Promise.all(SAMPLE_PAGES.slice(1).map(load));
-    // If the leaderboard ends before page 20, binary search the exact last page.
+    // leaderboard ends before page 20: find the last page
     const sampled = SAMPLE_PAGES.filter((p) => pages.get(p)?.length);
     let good = sampled[sampled.length - 1];
     let bad = SAMPLE_PAGES.find((p) => p > good && !pages.get(p)?.length);
@@ -180,7 +180,7 @@ const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     res.status(err.status).json({ error: err.message });
     return;
   }
-  // Anything else is most likely a failed Warcraft Logs request.
+  // most likely a failed WCL request
   console.error(err);
   res.status(502).json({ error: err instanceof Error ? err.message : String(err) });
 };

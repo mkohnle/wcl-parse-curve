@@ -17,7 +17,7 @@ async function getJson<T>(path: string, params: Record<string, string | number>)
   return body as T;
 }
 
-/** Memoize promises per key; failed requests are forgotten so they can be retried. */
+/** Memoize promises; failures are dropped so they can be retried. */
 function memo<A extends unknown[], T>(fn: (...args: A) => Promise<T>): (...args: A) => Promise<T> {
   const cache = new Map<string, Promise<T>>();
   return (...args) => {

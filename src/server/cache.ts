@@ -4,10 +4,7 @@ export const HOUR = 60 * MINUTE;
 const MAX_ENTRIES = 1000;
 const entries = new Map<string, { value: Promise<unknown>; expires: number }>();
 
-/**
- * Memoize `compute` under `key` for `ttlMs`. Stores the promise, so concurrent
- * callers share one in-flight request. Failures are not cached.
- */
+/** Cache `compute` for `ttlMs`. Concurrent callers share the promise; failures aren't cached. */
 export function cached<T>(key: string, ttlMs: number, compute: () => Promise<T>): Promise<T> {
   const now = Date.now();
   const hit = entries.get(key);

@@ -28,12 +28,7 @@ const SLOPE_MIN = 0.05;
 const SLOPE_MAX = 0.5;
 const DEFAULT_SLOPE = 0.15;
 
-/**
- * @param points  leaderboard [rank, amount] samples, best first
- * @param total   population size if known (overall parses report it, bracket parses don't)
- * @param complete whether `points` reach the end of the leaderboard
- * @param anchor  the player's own amount and log parse
- */
+/** points: [rank, amount], best first. total: population if known (bracket parses don't report it). */
 export function buildCurve(
   points: Points,
   { total, complete, anchor }: { total: number | null; complete: boolean; anchor: Anchor | null },
@@ -48,7 +43,7 @@ export function buildCurve(
   return model(points, exact, null);
 }
 
-/** Target parse for an anchor: the log floors, so the true value lies in [parse, parse + 1). */
+/** The log floors the parse, so aim for the middle. */
 const anchorTarget = (a: Anchor) => Math.min(99.99, a.parse + 0.5);
 
 /** Add the anchor as a point if it falls between sampled pages. */
@@ -68,12 +63,12 @@ function withAnchor(points: Points, n: number, anchor: Anchor | null): Points {
 function solveTotal(points: Points, anchor: Anchor): number {
   const exact = points[points.length - 1][0];
   const target = anchorTarget(anchor);
-  // Within the leaderboard data the anchor's rank is known: population follows directly.
+  // anchor inside the top 2000: its rank is known, so the total follows
   if (anchor.amount >= points[points.length - 1][1]) {
     const rank = rankInPoints(points, anchor.amount);
     return Math.max(exact + 1, rank / (1 - target / 100));
   }
-  // Otherwise bisect: a larger population puts a fixed amount at a higher parse.
+  // else bisect: a larger total gives the same amount a higher parse
   let lo = Math.log(exact + 1);
   let hi = Math.log(1e8);
   for (let i = 0; i < 50; i++) {
@@ -102,7 +97,7 @@ function model(points: Points, n: number, anchor: Anchor | null): Curve {
   const z = (rank: number) => probit(1 - (rank - 0.5) / n);
   const pctAtRank = (rank: number) => 100 * (1 - rank / n);
 
-  // Stay below the last exact rank to keep the curve monotonic.
+  // keep below the last exact rank (monotonic)
   let anchorPoint: { rank: number; z: number; y: number } | null = null;
   if (anchor && n > exact && anchor.amount < lastAmount) {
     const p = Math.max(anchor.parse, Math.min(anchorTarget(anchor), pctAtRank(exact + 1)));
@@ -118,7 +113,7 @@ function model(points: Points, n: number, anchor: Anchor | null): Curve {
       : tailSlope(points, z) || DEFAULT_SLOPE;
   slope = Math.min(SLOPE_MAX, Math.max(SLOPE_MIN, slope));
 
-  // index of the last point with rank <= r (points are sorted by rank)
+  // last point with rank <= r
   const indexAt = (r: number) => {
     let lo = 0;
     let hi = points.length - 1;
@@ -133,7 +128,7 @@ function model(points: Points, n: number, anchor: Anchor | null): Curve {
   const amountAtRank = (rank: number): number => {
     const r = Math.min(n, Math.max(1, rank));
     if (r <= exact) {
-      // Between sampled pages, interpolate log(amount) in z-space: follows the bend of the tail.
+      // between sampled pages: log(amount) linear in z
       const i = indexAt(r);
       const [r1, a1] = points[i];
       const [r2, a2] = points[Math.min(points.length - 1, i + 1)];
@@ -152,7 +147,7 @@ function model(points: Points, n: number, anchor: Anchor | null): Curve {
   const percentileOf = (amount: number): number => {
     if (amount >= points[0][1]) return 100;
     if (amount <= amountAtRank(n)) return 0;
-    // amountAtRank is decreasing: bisect for the rank that matches `amount`
+    // bisect for the rank of `amount`
     let lo = 1;
     let hi = n;
     for (let i = 0; i < 60; i++) {
@@ -172,7 +167,7 @@ function model(points: Points, n: number, anchor: Anchor | null): Curve {
   };
 }
 
-/** Least-squares slope of log(amount) over z for the leaderboard data (skipping the noisy very top). */
+/** Slope of log(amount) over z, fitted on the leaderboard (skips the noisy top 10). */
 function tailSlope(points: Points, z: (rank: number) => number): number {
   let sx = 0;
   let sy = 0;
@@ -197,7 +192,7 @@ function tailSlope(points: Points, z: (rank: number) => number): number {
 export const normalPdf = (x: number, mean: number, sd: number) =>
   Math.exp(-0.5 * ((x - mean) / sd) ** 2) / (sd * Math.sqrt(2 * Math.PI));
 
-/** Mean and standard deviation of the modeled population (for the normal-fit overlay). */
+/** Mean and sd of the curve, for the normal-fit line. */
 export function meanAndStdDev(curve: Curve, samples = 1000): { mean: number; sd: number } {
   const values = Array.from({ length: samples }, (_, i) => curve.amountAt(((i + 0.5) / samples) * 100));
   const mean = values.reduce((a, b) => a + b, 0) / samples;

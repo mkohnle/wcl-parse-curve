@@ -100,16 +100,13 @@ export function renderAnalysisLoading(p: Player): string {
     </section>`;
 }
 
-/** A parse value with its label, e.g. { label: "+18 parse", parse: 19 }. */
+/** e.g. { label: "+18 parse", parse: 19 } */
 export interface LabeledParse {
   label: string;
   parse: number;
 }
 
-/**
- * @param main  the parse the curve is built for (shown big; the curve passes through it)
- * @param other a second parse from the log, shown small for reference
- */
+/** main: the parse the curve is built for (shown big). other: shown small. */
 export function renderAnalysis(
   p: Player,
   curve: Curve,
@@ -119,7 +116,7 @@ export function renderAnalysis(
 ): string {
   const cc = classColor(p.cls);
   const metric = p.metric.toUpperCase();
-  // Show the log's own parse; the curve is pinned to it anyway.
+  // the log's parse; the curve is pinned to it
   const current = Math.floor(main.parse);
   const color = tierColor(current);
 

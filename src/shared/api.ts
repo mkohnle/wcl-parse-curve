@@ -51,9 +51,9 @@ export interface Player {
   parse: number;
   /** Parse within the ilvl / key level bracket. */
   bracketParse: number | null;
-  /** Size of the population `parse` is measured against. */
+  /** Population `parse` is measured against. */
   totalParses: number | null;
-  /** Bracket index for leaderboard queries (key level - 1 in Mythic+). */
+  /** Bracket index (M+: key level - 1). */
   bracket: number | null;
 }
 
@@ -78,7 +78,7 @@ export interface DistributionQuery {
 }
 
 export interface DistributionResponse {
-  /** Sampled [rank, amount] leaderboard points, best first. The API serves at most the top 2,000. */
+  /** Sampled [rank, amount] points, best first (top 2,000 max). */
   points: [rank: number, amount: number][];
   /** True if `points` reach the end of the leaderboard. */
   complete: boolean;

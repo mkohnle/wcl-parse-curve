@@ -30,7 +30,7 @@ const fightsEl = $("fights");
 const playersEl = $("players");
 const analysisEl = $("analysis");
 
-/** What is selected; mirrored in the URL (?report=&fight=&player=) so views can be shared. */
+/** Current selection, mirrored in the URL. */
 interface Selection {
   code: string;
   fight: number | null;
@@ -40,7 +40,7 @@ interface Selection {
 let report: ReportResponse | null = null;
 let fight: FightResponse | null = null;
 let selection: Selection | null = null;
-/** Bumped on every navigation so late responses for an old selection are dropped. */
+/** Drops late responses from an old selection. */
 let generation = 0;
 
 function setStatus(text: string, isError = false) {
@@ -66,7 +66,7 @@ function readUrl(): Selection | null {
   return { code, fight: Number(params.get("fight")) || null, player: params.get("player") };
 }
 
-/** Load and render everything for `next`, reusing what is already on screen. */
+/** Load and render `next`, reusing what's on screen. */
 async function show(next: Selection, push = true) {
   const gen = ++generation;
   const prev = selection;
@@ -124,8 +124,7 @@ async function show(next: Selection, push = true) {
     analysisEl.innerHTML = renderAnalysisLoading(player);
     analysisEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
 
-    // The overall Mythic+ parse also weighs the key level, so no DPS leaderboard can
-    // reproduce it. Use the key level leaderboard and its parse instead.
+    // overall M+ parse weighs key level; use the key level leaderboard instead
     const byKeyLevel = isMythicPlus && player.bracket != null && player.bracketParse != null;
     const main: LabeledParse = byKeyLevel
       ? { label: `+${meta?.keystoneLevel} parse`, parse: player.bracketParse as number }
@@ -222,7 +221,7 @@ window.addEventListener("popstate", () => {
   if (s) show(s, false);
 });
 
-// boss icons don't exist for every encounter: swap to the fallback, else hide
+// missing boss icon: use the fallback, else hide
 document.addEventListener(
   "error",
   (e) => {

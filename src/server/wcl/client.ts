@@ -2,7 +2,7 @@ import type { Budget } from "../../shared/api.ts";
 import { config, hasWclCredentials } from "../config.ts";
 import { HttpError } from "../http.ts";
 
-// WCL_BASE_URL only changes the API host; tokens are requested from the main site.
+// tokens always come from the main site
 const TOKEN_URL = "https://www.warcraftlogs.com/oauth/token";
 
 // ---------- circuit breaker ----------
