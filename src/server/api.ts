@@ -27,6 +27,11 @@ const isName = (s: string) => /^[A-Za-z]+$/.test(s);
 const isReportCode = (s: string) => /^[A-Za-z0-9]{10,24}$/.test(s);
 const stripSpaces = (s: string) => s.replace(/\s+/g, "");
 
+// For the host's health check; never calls Warcraft Logs.
+api.get("/health", (_req, res) => {
+  res.json({ ok: true });
+});
+
 api.get("/zones", async (_req, res) => {
   res.json(await cached("zones", 6 * HOUR, fetchLatestZones));
 });

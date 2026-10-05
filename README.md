@@ -36,6 +36,10 @@ Warcraft Logs defines a parse as `100 × (1 − rank / population)` on the spec'
 
 Raids use the overall parse; the log reports the population size (`totalParses`). The overall **Mythic+** parse also weighs the key level, so no DPS leaderboard can reproduce it. M+ fights therefore use the leaderboard of the same key level and its key-level parse. That population size isn't reported, so it's solved from the player's parse.
 
+## Deploy (Render)
+
+`render.yaml` is a Render Blueprint for the free web service. On render.com: **New → Blueprint**, pick this repo, and enter `WCL_CLIENT_ID` / `WCL_CLIENT_SECRET` when asked. Every push to `main` redeploys. The free instance sleeps after 15 minutes without traffic, so the first visit afterwards takes 30–60 s and starts with an empty cache.
+
 ## Rate limits
 
 A WCL API client gets 720 points per hour, and one leaderboard page costs about 1 point. A new spec costs about 8 points; results are cached in memory for an hour. Separately, bursts of many parallel requests get the whole IP blocked for an hour, so the server never runs more than 4 WCL requests at a time.

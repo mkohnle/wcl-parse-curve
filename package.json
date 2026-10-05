@@ -4,6 +4,7 @@
   "private": true,
   "description": "Compare a Warcraft Logs parse against the full ranking distribution for its spec",
   "type": "module",
+  "packageManager": "pnpm@12.9.1",
   "engines": {
     "node": ">=22.18"
   },
@@ -12,7 +13,8 @@
     "dev:client": "vite",
     "dev:server": "node --watch --env-file-if-exists=.env src/server/main.ts --dev",
     "build": "vite build",
-    "start": "vite build && node --env-file-if-exists=.env src/server/main.ts",
+    "start": "vite build && pnpm serve",
+    "serve": "node --env-file-if-exists=.env src/server/main.ts",
     "typecheck": "tsc",
     "lint": "biome check .",
     "format": "biome check --write .",
