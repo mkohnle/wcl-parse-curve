@@ -110,7 +110,9 @@ async function show(next: Selection, push = true) {
       if (gen !== generation) return;
       fight = f;
     }
-    playersEl.innerHTML = renderPlayers(fight.players, next.player);
+    const meta = report.fights.find((f) => f.id === next.fight);
+    const isMythicPlus = (meta?.keystoneLevel ?? 0) > 0;
+    playersEl.innerHTML = renderPlayers(fight.players, next.player, isMythicPlus);
 
     // analysis of the selected player
     const player = fight.players.find((p) => p.name === next.player);
@@ -118,8 +120,6 @@ async function show(next: Selection, push = true) {
       analysisEl.innerHTML = "";
       return;
     }
-    const meta = report.fights.find((f) => f.id === next.fight);
-    const isMythicPlus = (meta?.keystoneLevel ?? 0) > 0;
     analysisEl.innerHTML = renderAnalysisLoading(player);
     analysisEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
 

@@ -54,7 +54,9 @@ const ROLE_GROUPS: [Role, string][] = [
   ["dps", "Damage"],
 ];
 
-export function renderPlayers(players: Player[], selected: string | null): string {
+/** byKeyLevel: show the key level parse (M+). */
+export function renderPlayers(players: Player[], selected: string | null, byKeyLevel: boolean): string {
+  const shown = (p: Player) => (byKeyLevel ? (p.bracketParse ?? p.parse) : p.parse);
   const groups = ROLE_GROUPS.map(([role, title]) => {
     const list = players.filter((p) => p.role === role).sort((a, b) => b.amount - a.amount);
     if (!list.length) return "";
@@ -73,7 +75,7 @@ export function renderPlayers(players: Player[], selected: string | null): strin
             <div class="truncate font-semibold" style="color:${cc}">${esc(p.name)}</div>
             <div class="truncate text-xs text-zinc-500">${esc(spaced(p.spec))} · ${compact(p.amount)} ${p.metric.toUpperCase()}</div>
           </div>
-          <div class="text-2xl font-bold tabular-nums" style="color:${tierColor(p.parse)}">${Math.floor(p.parse)}</div>
+          <div class="text-2xl font-bold tabular-nums" style="color:${tierColor(shown(p))}">${Math.floor(shown(p))}</div>
         </button>`;
     });
     return `<div><div class="label mb-2">${title}</div><div class="space-y-2">${cards.join("")}</div></div>`;
