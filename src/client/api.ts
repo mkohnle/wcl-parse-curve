@@ -1,5 +1,6 @@
 import type {
   ApiError,
+  Budget,
   DistributionQuery,
   DistributionResponse,
   FightResponse,
@@ -30,6 +31,9 @@ function memo<A extends unknown[], T>(fn: (...args: A) => Promise<T>): (...args:
     return p;
   };
 }
+
+/** Not memoized: the budget changes with every lookup. */
+export const getBudget = () => getJson<Budget | null>("/api/budget", {});
 
 export const getReport = memo((code: string) => getJson<ReportResponse>("/api/report", { code }));
 

@@ -1,6 +1,6 @@
 import "./style.css";
 import type { FightResponse, ReportResponse } from "../shared/api.ts";
-import { getDistribution, getFight, getReport } from "./api.ts";
+import { getBudget, getDistribution, getFight, getReport } from "./api.ts";
 import { mountChart } from "./chart.ts";
 import { buildCurve } from "./curve.ts";
 import { esc } from "./format.ts";
@@ -21,6 +21,7 @@ const goButton = $<HTMLButtonElement>("go");
 const statusEl = $("status");
 const reportEl = $("report");
 const tooltip = $("tooltip");
+const budgetEl = $("budget");
 
 reportEl.innerHTML = `<div id="report-head"></div><div id="fights"></div><div id="players"></div><div id="analysis"></div>`;
 const headEl = $("report-head");
@@ -165,7 +166,20 @@ async function show(next: Selection, push = true) {
       setStatus(errorMessage(e), true);
       if (!report) headEl.innerHTML = "";
     }
+  } finally {
+    showBudget();
   }
+}
+
+/** API points left, shown in the footer. */
+async function showBudget() {
+  const b = await getBudget().catch(() => null);
+  if (!b) {
+    budgetEl.textContent = "";
+    return;
+  }
+  const minutes = Math.max(1, Math.ceil(b.resetIn / 60));
+  budgetEl.textContent = `Warcraft Logs API: ${Math.max(0, Math.floor(b.remaining))} of ${b.limit} points left this hour · resets in ${minutes} min`;
 }
 
 // ---------- events ----------
@@ -225,4 +239,6 @@ const initial = readUrl();
 if (initial) {
   urlInput.value = `https://www.warcraftlogs.com/reports/${initial.code}`;
   show(initial, false);
+} else {
+  showBudget();
 }
