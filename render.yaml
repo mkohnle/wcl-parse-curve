@@ -4,8 +4,10 @@ services:
     name: wcl-parse-curve
     runtime: node
     plan: free
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm build
-    startCommand: pnpm serve
+    # `corepack enable` fails on Render (/usr/bin is read-only); `corepack pnpm` runs the
+    # pnpm version pinned in package.json without installing anything globally.
+    buildCommand: COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm install --frozen-lockfile && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm build
+    startCommand: node src/server/main.ts
     healthCheckPath: /api/health
     envVars:
       - key: NODE_VERSION
