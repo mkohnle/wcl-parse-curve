@@ -1,0 +1,114 @@
+import type { DistributionQuery, Fight, ReportResponse, Zone } from "../../shared/api.ts";
+import { HttpError } from "../http.ts";
+import { gql } from "./client.ts";
+
+export async function fetchLatestZones(): Promise<Zone[]> {
+  const data = await gql<{ worldData: { expansions: { id: number; zones: Zone[] }[] } }>(`
+    query Zones {
+      worldData { expansions { id zones { id name encounters { id name } } } }
+    }`);
+  const latest = data.worldData.expansions.reduce((a, b) => (b.id > a.id ? b : a));
+  return latest.zones.filter((z) => z.encounters.length).sort((a, b) => b.id - a.id);
+}
+
+/** Amounts of one leaderboard page (100 entries), best first. Empty past the last page. */
+export async function fetchRankingAmounts(q: DistributionQuery, page: number): Promise<number[]> {
+  const data = await gql<{
+    worldData: {
+      encounter: { characterRankings: { rankings?: { amount: number }[]; error?: string } } | null;
+    };
+  }>(
+    `query Rankings($enc: Int!, $metric: CharacterRankingMetricType, $cls: String, $spec: String,
+                    $page: Int, $diff: Int, $part: Int, $bracket: Int) {
+      worldData { encounter(id: $enc) {
+        characterRankings(metric: $metric, className: $cls, specName: $spec, page: $page,
+                          difficulty: $diff, partition: $part, bracket: $bracket)
+      } }
+    }`,
+    {
+      enc: q.enc,
+      metric: q.metric,
+      cls: q.cls,
+      spec: q.spec,
+      page,
+      diff: q.diff || undefined,
+      part: q.part || undefined,
+      bracket: q.bracket || undefined,
+    },
+  );
+  const encounter = data.worldData.encounter;
+  if (!encounter) throw new HttpError(404, `Unknown encounter ${q.enc}`);
+  // Out-of-range pages come back as { error: "..." } instead of a GraphQL error.
+  return encounter.characterRankings.rankings?.map((r) => r.amount) ?? [];
+}
+
+interface RawFight extends Omit<Fight, "duration"> {
+  startTime: number;
+  endTime: number;
+}
+
+export async function fetchReport(code: string): Promise<ReportResponse> {
+  const data = await gql<{
+    reportData: { report: { title: string; zone: ReportResponse["zone"]; fights: RawFight[] } | null };
+  }>(
+    `query Report($code: String!) {
+      reportData { report(code: $code) {
+        title
+        zone { id name }
+        fights { id name encounterID difficulty kill keystoneLevel startTime endTime }
+      } }
+    }`,
+    { code },
+  );
+  const report = data.reportData.report;
+  if (!report) throw new HttpError(404, "Report not found");
+  return {
+    title: report.title,
+    zone: report.zone,
+    fights: report.fights
+      .filter((f) => f.encounterID > 0)
+      .map(({ startTime, endTime, ...f }) => ({
+        ...f,
+        kill: Boolean(f.kill),
+        duration: endTime - startTime,
+      })),
+  };
+}
+
+export interface RawCharacterRanking {
+  name: string;
+  class: string;
+  spec: string;
+  amount: number;
+  rankPercent: number;
+  bracketPercent?: number;
+  totalParses?: number;
+  bracket?: number;
+}
+
+export interface RawFightRanking {
+  encounter: { id: number; name: string };
+  difficulty: number;
+  partition: number;
+  roles?: Partial<Record<"tanks" | "healers" | "dps", { characters: RawCharacterRanking[] }>>;
+}
+
+export interface RawFightRankings {
+  dps: { data: RawFightRanking[] } | null;
+  hps: { data: RawFightRanking[] } | null;
+}
+
+export async function fetchFightRankings(code: string, fightId: number): Promise<RawFightRankings> {
+  const data = await gql<{ reportData: { report: RawFightRankings | null } }>(
+    `query FightRankings($code: String!, $fight: Int!) {
+      reportData { report(code: $code) {
+        dps: rankings(fightIDs: [$fight], playerMetric: dps)
+        hps: rankings(fightIDs: [$fight], playerMetric: hps)
+      } }
+    }`,
+    { code, fight: fightId },
+  );
+  const report = data.reportData.report;
+  if (!report) throw new HttpError(404, "Report not found");
+  return report;
+}

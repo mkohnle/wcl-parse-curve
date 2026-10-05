@@ -1,0 +1,34 @@
+{
+  "name": "wcl-parse-curve",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Compare a Warcraft Logs parse against the full ranking distribution for its spec",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "dev": "pnpm run --parallel \"/^dev:/\"",
+    "dev:client": "vite",
+    "dev:server": "node --watch --env-file-if-exists=.env src/server/main.ts --dev",
+    "build": "vite build",
+    "start": "vite build && node --env-file-if-exists=.env src/server/main.ts",
+    "typecheck": "tsc",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "check": "pnpm typecheck && pnpm lint"
+  },
+  "dependencies": {
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.15",
+    "@fontsource/cinzel": "^5.3.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/express": "^5.0.6",
+    "@types/node": "^24.19.1",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.2"
+  }
+}

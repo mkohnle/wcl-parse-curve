@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Parse Curve</title>
+  </head>
+  <body class="min-h-screen font-sans text-zinc-200 antialiased">
+    <header class="sticky top-0 z-30 border-b border-white/10 bg-black/70 backdrop-blur">
+      <div class="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
+        <a href="/" class="font-display text-xl font-bold tracking-wide text-gold">Parse Curve</a>
+        <span class="label hidden sm:block">Powered by Warcraft Logs</span>
+      </div>
+    </header>
+
+    <main class="mx-auto max-w-6xl px-4 pb-24">
+      <section class="py-10 text-center sm:py-14">
+        <h1 class="font-display text-3xl font-bold text-zinc-100 drop-shadow sm:text-5xl">
+          Where does your parse <span class="text-gold">really</span> stand?
+        </h1>
+        <p class="mx-auto mt-3 max-w-xl text-zinc-400">
+          Paste a Warcraft Logs report, pick a player, and see their spot on the full curve, plus what it takes to
+          reach the next color.
+        </p>
+        <form id="load-form" class="mx-auto mt-8 flex max-w-2xl gap-2">
+          <input
+            id="url"
+            autocomplete="off"
+            spellcheck="false"
+            aria-label="Warcraft Logs report URL or code"
+            placeholder="https://www.warcraftlogs.com/reports/…"
+            class="h-12 min-w-0 flex-1 rounded-sm border border-line bg-black/50 px-4 text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-gold/70 focus:ring-2 focus:ring-gold/20"
+          />
+          <button id="go" type="submit" class="btn-wow h-12">Load</button>
+        </form>
+        <div id="status" class="mt-4 min-h-6 text-sm text-zinc-400" role="status"></div>
+      </section>
+
+      <div id="report" class="space-y-6"></div>
+    </main>
+
+    <div
+      id="tooltip"
+      class="pointer-events-none fixed z-50 hidden rounded border border-line bg-black/90 px-3 py-2 text-sm shadow-xl backdrop-blur"
+    ></div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
