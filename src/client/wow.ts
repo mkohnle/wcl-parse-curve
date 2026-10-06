@@ -3,8 +3,10 @@
 const ASSETS = "https://assets.rpglogs.com/img/warcraft";
 
 export const specIcon = (cls: string, spec: string) => `${ASSETS}/icons/large/${cls}-${spec}.jpg`;
-export const bossIcon = (encounterId: number) => `${ASSETS}/bosses/${encounterId}-icon.jpg`;
+// M+ dungeons in reports carry a 50,000 / 100,000 offset (e.g. 112521 → 12521)
+export const bossIcon = (encounterId: number) => `${ASSETS}/bosses/${encounterId % 50_000}-icon.jpg`;
 export const zoneIcon = (zoneId: number) => `${ASSETS}/zones/zone-${zoneId}.png`;
+export const talentIcon = (icon: string) => `https://wow.zamimg.com/images/wow/icons/large/${icon}.jpg`;
 
 const CLASS_COLORS: Record<string, string> = {
   DeathKnight: "#C41E3A",
