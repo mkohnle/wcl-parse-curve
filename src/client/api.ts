@@ -3,6 +3,7 @@ import type {
   Budget,
   CharacterLog,
   CharacterResponse,
+  CharacterSection,
   DistributionQuery,
   DistributionResponse,
   FightResponse,
@@ -78,8 +79,8 @@ export const getDistribution = memo((q: DistributionQuery) =>
 
 export const getRealms = memo((region: Region) => getJson<Realm[]>("/api/realms", { region }));
 
-export const getCharacter = memo((name: string, realm: string, region: Region) =>
-  getJson<CharacterResponse>("/api/character", { name, realm, region }),
+export const getCharacter = memo((name: string, realm: string, region: Region, section: CharacterSection) =>
+  getJson<CharacterResponse>("/api/character", { name, realm, region, section }),
 );
 
 export const getCharacterLogs = memo(
@@ -87,18 +88,18 @@ export const getCharacterLogs = memo(
     name: string,
     realm: string,
     region: Region,
-    enc: number,
+    encounterId: number,
     metric: Metric,
-    diff: number,
+    difficulty: number,
     keyLevel: boolean,
   ) =>
     getJson<CharacterLog[]>("/api/character/logs", {
       name,
       realm,
       region,
-      enc,
+      encounterId,
       metric,
-      diff,
+      difficulty,
       keyLevel: keyLevel ? 1 : 0,
     }),
 );

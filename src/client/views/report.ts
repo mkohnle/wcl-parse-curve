@@ -1,0 +1,119 @@
+import type { Fight, Player, ReportResponse, Role } from "../../shared/api.ts";
+import { compact, duration, esc, spaced } from "../format.ts";
+import { DEMO_CODE } from "../search-input.ts";
+import { bossIcon, classColor, difficultyName, specIcon, tierColor, zoneIcon } from "../wow.ts";
+import { img, skeleton } from "./common.ts";
+
+export function renderReportHeader(code: string, report: ReportResponse): string {
+  const zone = report.zone;
+  return `
+    <div class="panel flex items-center gap-4 p-4">
+      ${zone ? img(zoneIcon(zone.id), "size-14") : ""}
+      <div class="min-w-0 flex-1">
+        <h2 class="truncate text-2xl font-bold text-zinc-100">${esc(report.title)}</h2>
+        ${zone && zone.name !== report.title ? `<div class="text-zinc-400">${esc(zone.name)}</div>` : ""}
+      </div>
+      ${
+        code === DEMO_CODE
+          ? `<span class="label shrink-0 rounded-sm border border-gold/40 px-2 py-1 text-gold">Demo data</span>`
+          : `<a href="https://www.warcraftlogs.com/reports/${esc(code)}" target="_blank" rel="noreferrer"
+               class="label hidden shrink-0 hover:text-gold sm:block">Open on Warcraft Logs ↗</a>`
+      }
+    </div>`;
+}
+
+export const renderReportHeaderSkeleton = () => `
+  <div class="panel flex items-center gap-4 p-4">
+    ${skeleton("size-14")}
+    <div class="flex-1 space-y-2">${skeleton("h-6 w-64")}${skeleton("h-4 w-40")}</div>
+  </div>`;
+
+export function renderFights(fights: Fight[], zoneId: number | undefined, selected: number | null): string {
+  const cards = fights.map((f) => {
+    const on = f.id === selected;
+    const mode = f.keystoneLevel ? `+${f.keystoneLevel}` : difficultyName(f.difficulty);
+    return `
+      <button type="button" data-fight="${f.id}"
+        class="flex items-center gap-3 rounded-md border p-2 pr-3 text-left transition ${
+          on
+            ? "border-gold/80 bg-gold/10 ring-1 ring-gold/40"
+            : "border-line bg-panel hover:border-zinc-500 hover:bg-panel-2"
+        }">
+        ${img(bossIcon(f.encounterId), "size-10", zoneId ? zoneIcon(zoneId) : undefined)}
+        <div class="min-w-0">
+          <div class="truncate font-semibold text-zinc-100">${esc(f.name)}</div>
+          <div class="text-xs text-zinc-400">
+            <span class="${f.kill ? "text-emerald-400" : "text-red-400"}">${f.kill ? "Kill" : "Wipe"}</span>
+            · ${mode} · ${duration(f.duration)}
+          </div>
+        </div>
+      </button>`;
+  });
+  return section(
+    "1 · Choose a fight",
+    `<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">${cards.join("")}</div>`,
+  );
+}
+
+export const renderFightsSkeleton = () =>
+  section(
+    "1 · Choose a fight",
+    `<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">${Array.from(
+      { length: 3 },
+      () =>
+        `<div class="panel flex items-center gap-3 p-2">${skeleton("size-10")}<div class="flex-1 space-y-1.5">${skeleton("h-4 w-32")}${skeleton("h-3 w-24")}</div></div>`,
+    ).join("")}</div>`,
+  );
+
+const ROLE_GROUPS: [Role, string][] = [
+  ["tank", "Tanks"],
+  ["healer", "Healers"],
+  ["dps", "Damage"],
+];
+
+/** byKeyLevel: show the key level parse (M+). */
+export function renderPlayers(players: Player[], selected: string | null, byKeyLevel: boolean): string {
+  const shown = (p: Player) => (byKeyLevel ? (p.bracketParse ?? p.parse) : p.parse);
+  const groups = ROLE_GROUPS.map(([role, title]) => {
+    const list = players.filter((p) => p.role === role).sort((a, b) => b.amount - a.amount);
+    if (!list.length) return "";
+    const cards = list.map((p) => {
+      const cc = classColor(p.className);
+      const on = p.name === selected;
+      return `
+        <button type="button" data-player="${esc(p.name)}"
+          class="flex w-full items-center gap-3 rounded-md border p-2 pr-3 text-left transition ${
+            on
+              ? "border-gold/80 bg-gold/10 ring-1 ring-gold/40"
+              : "border-line bg-panel hover:border-zinc-500 hover:bg-panel-2"
+          }">
+          ${img(specIcon(p.className, p.spec), "size-10", undefined, `border-color:${cc}`)}
+          <div class="min-w-0 flex-1">
+            <div class="truncate font-semibold" style="color:${cc}">${esc(p.name)}</div>
+            <div class="truncate text-xs text-zinc-500">${esc(spaced(p.spec))} · ${compact(p.amount)} ${p.metric.toUpperCase()}</div>
+          </div>
+          <div class="text-2xl font-bold tabular-nums" style="color:${tierColor(shown(p))}">${Math.floor(shown(p))}</div>
+        </button>`;
+    });
+    return `<div><div class="label mb-2">${title}</div><div class="space-y-2">${cards.join("")}</div></div>`;
+  });
+  return section(
+    "2 · Pick a player",
+    `<div class="panel grid gap-5 p-4 md:grid-cols-3">${groups.join("")}</div>`,
+  );
+}
+
+export const renderPlayersSkeleton = () =>
+  section(
+    "2 · Pick a player",
+    `<div class="panel grid gap-5 p-4 md:grid-cols-3">${ROLE_GROUPS.map(
+      () =>
+        `<div class="space-y-2">${skeleton("h-3 w-16")}${Array.from({ length: 3 }, () => skeleton("h-14 w-full")).join("")}</div>`,
+    ).join("")}</div>`,
+  );
+
+const section = (title: string, body: string) => `
+  <section>
+    <h3 class="label mb-2">${title}</h3>
+    ${body}
+  </section>`;

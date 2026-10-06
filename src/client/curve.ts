@@ -15,7 +15,7 @@ export interface Curve {
   amountAt(p: number): number;
 }
 
-export interface Anchor {
+interface Anchor {
   amount: number;
   /** Whole-number parse as shown by Warcraft Logs. */
   parse: number;

@@ -2,8 +2,8 @@
 
 const ASSETS = "https://assets.rpglogs.com/img/warcraft";
 
-export const specIcon = (cls: string, spec: string) => `${ASSETS}/icons/large/${cls}-${spec}.jpg`;
-export const classIcon = (cls: string) => `${ASSETS}/icons/large/${cls}.jpg`;
+export const specIcon = (className: string, spec: string) => `${ASSETS}/icons/large/${className}-${spec}.jpg`;
+export const classIcon = (className: string) => `${ASSETS}/icons/large/${className}.jpg`;
 // M+ dungeons in reports carry a 50,000 / 100,000 offset (e.g. 112521 → 12521)
 export const bossIcon = (encounterId: number) => `${ASSETS}/bosses/${encounterId % 50_000}-icon.jpg`;
 export const zoneIcon = (zoneId: number) => `${ASSETS}/zones/zone-${zoneId}.png`;
@@ -24,7 +24,7 @@ const CLASS_COLORS: Record<string, string> = {
   Warlock: "#8788EE",
   Warrior: "#C69B6D",
 };
-export const classColor = (cls: string) => CLASS_COLORS[cls] ?? "#d4d4d8";
+export const classColor = (className: string) => CLASS_COLORS[className] ?? "#d4d4d8";
 
 /** Parse tiers, highest first. */
 export const TIERS = [

@@ -4,7 +4,7 @@ import { compact, esc, fmt } from "./format.ts";
 import { TIERS, tierColor } from "./wow.ts";
 
 /** A real leaderboard entry with a link to its log. */
-export interface RealLog {
+interface RealLog {
   rank: number;
   amount: number;
   log: LogRef;
