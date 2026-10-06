@@ -67,7 +67,8 @@ const adminToken = () => {
 /** Admin only (404 otherwise). Not memoized: the budget changes with every lookup. */
 export const getBudget = () => getJson<Budget | null>("/api/budget", {}, { "x-admin-token": adminToken() });
 
-export const getReport = memo((code: string) => getJson<ReportResponse>("/api/report", { code }));
+/** Not memoized: a recent log can gain fights at any time. */
+export const getReport = (code: string) => getJson<ReportResponse>("/api/report", { code });
 
 export const getFight = memo((code: string, fight: number) =>
   getJson<FightResponse>("/api/fight", { code, fight }),
