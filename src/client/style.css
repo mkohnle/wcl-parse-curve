@@ -21,6 +21,10 @@
       radial-gradient(800px 400px at 85% 0, rgb(229 204 128 / 0.08), transparent 70%), var(--color-ink);
     background-attachment: fixed;
   }
+  /* Tailwind v4 resets buttons to the default cursor */
+  button:not(:disabled) {
+    cursor: pointer;
+  }
 }
 
 @layer components {
