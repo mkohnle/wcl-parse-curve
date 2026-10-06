@@ -3,34 +3,40 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Parse Curve</title>
+    <title>Logscope</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   </head>
   <body class="min-h-screen font-sans text-zinc-200 antialiased">
     <header class="sticky top-0 z-30 border-b border-white/10 bg-black/70 backdrop-blur">
       <div class="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-        <a href="/" class="font-display text-xl font-bold tracking-wide text-gold">Parse Curve</a>
+        <a href="/" class="flex items-center gap-2 font-display text-xl font-bold uppercase tracking-wide text-gold">
+          <img src="/favicon.svg" alt="" class="size-7" />Logscope
+        </a>
       </div>
     </header>
 
     <main class="mx-auto max-w-6xl px-4 pb-24">
       <section class="py-10 text-center sm:py-14">
-        <h1 class="font-display text-3xl font-bold text-zinc-100 drop-shadow sm:text-5xl">
-          Check <span class="text-gold">parses</span> on a curve
-        </h1>
-        <p class="mx-auto mt-3 max-w-xl text-zinc-400">
-          Paste a Warcraft Logs report, pick a player, and see their spot on the full curve.
-        </p>
-        <form id="load-form" class="mx-auto mt-8 flex max-w-2xl gap-2">
+        <form id="load-form" class="relative mx-auto max-w-2xl">
           <input
             id="url"
             autocomplete="off"
             spellcheck="false"
             aria-label="Warcraft Logs report URL or code"
-            placeholder="https://www.warcraftlogs.com/reports/…"
-            class="h-12 min-w-0 flex-1 rounded-sm border border-line bg-black/50 px-4 text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-gold/70 focus:ring-2 focus:ring-gold/20"
+            placeholder="Paste a Warcraft Logs report link"
+            class="h-12 w-full rounded-sm border border-line bg-black/50 pr-12 pl-4 text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-gold/70"
           />
-          <button id="go" type="submit" class="btn-wow h-12">Load</button>
+          <button
+            id="go"
+            type="submit"
+            aria-label="Search"
+            class="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-zinc-400 hover:text-gold disabled:cursor-wait disabled:opacity-50"
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+              <circle cx="10.5" cy="10.5" r="6.5" />
+              <path d="m15.5 15.5 5 5" />
+            </svg>
+          </button>
         </form>
         <div id="status" class="mt-4 min-h-6 text-sm text-zinc-400" role="status"></div>
       </section>

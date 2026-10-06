@@ -1,4 +1,4 @@
-# wcl-parse-curve
+# Logscope
 
 Shows where a Warcraft Logs parse sits on the full curve for its spec, and how much DPS/HPS the next colors need.
 
