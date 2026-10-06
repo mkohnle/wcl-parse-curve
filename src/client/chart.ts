@@ -1,7 +1,17 @@
-import type { Player } from "../shared/api.ts";
+import type { LogRef, Player } from "../shared/api.ts";
 import { type Curve, meanAndStdDev, normalPdf } from "./curve.ts";
 import { compact, esc, fmt } from "./format.ts";
 import { TIERS, tierColor } from "./wow.ts";
+
+/** A real leaderboard entry with a link to its log. */
+export interface RealLog {
+  rank: number;
+  amount: number;
+  log: LogRef;
+}
+
+const logUrl = (l: LogRef, metric: Player["metric"]) =>
+  `https://www.warcraftlogs.com/reports/${l.code}#fight=${l.fight}&type=${metric === "hps" ? "healing" : "damage-done"}`;
 
 const W = 900;
 const H = 340;
@@ -15,15 +25,18 @@ interface Bin {
   pHi: number;
   count: number;
   estimated: boolean;
+  /** real log closest to the bar's middle; only on bars with real data */
+  example: RealLog | null;
 }
 
-/** Render an interactive histogram of the modeled population into `el`. */
+/** Render an interactive histogram of the modeled population into `el`. Bars with real data link to a log. */
 export function mountChart(
   el: HTMLElement,
   tooltip: HTMLElement,
   curve: Curve,
   player: Player,
   playerParse: number,
+  logs: RealLog[],
 ): void {
   const lo = Math.min(curve.amountAt(1), player.amount) * 0.97;
   const hi = Math.max(curve.amountAt(99.9), player.amount) * 1.03;
@@ -35,7 +48,16 @@ export function mountChart(
     const b = a + bw;
     const pLo = curve.percentileOf(a);
     const pHi = curve.percentileOf(b);
-    return { lo: a, hi: b, pLo, pHi, count: ((pHi - pLo) / 100) * curve.total, estimated: b < exactFrom };
+    const estimated = b < exactFrom;
+    return {
+      lo: a,
+      hi: b,
+      pLo,
+      pHi,
+      count: ((pHi - pLo) / 100) * curve.total,
+      estimated,
+      example: estimated ? null : closest(logs, (a + b) / 2),
+    };
   });
 
   const { mean, sd } = meanAndStdDev(curve);
@@ -107,12 +129,21 @@ export function mountChart(
     active = -1;
   };
 
+  const binAt = (e: MouseEvent) => {
+    const box = svg.getBoundingClientRect();
+    const i = Math.floor((((e.clientX - box.left) / box.width) * W - PAD.left) / colW);
+    return i >= 0 && i < BINS ? i : -1;
+  };
+
+  svg.addEventListener("click", (e) => {
+    const example = bins[binAt(e)]?.example;
+    if (example) window.open(logUrl(example.log, player.metric), "_blank", "noopener");
+  });
+
   svg.addEventListener("pointerleave", hide);
   svg.addEventListener("pointermove", (e) => {
-    const box = svg.getBoundingClientRect();
-    const vx = ((e.clientX - box.left) / box.width) * W;
-    const i = Math.floor((vx - PAD.left) / colW);
-    if (i < 0 || i >= BINS) {
+    const i = binAt(e);
+    if (i < 0) {
       hide();
       return;
     }
@@ -122,11 +153,13 @@ export function mountChart(
       bar(i)?.setAttribute("stroke", "#fff");
       active = i;
       const b = bins[i];
+      svg.style.cursor = b.example ? "pointer" : "default";
       tooltip.innerHTML = `
         <div class="font-semibold text-zinc-100">${compact(b.lo)} – ${compact(b.hi)} ${player.metric.toUpperCase()}</div>
         <div style="color:${tierColor(b.pHi)}">Parse ${Math.floor(b.pLo)} – ${Math.floor(b.pHi)}</div>
         <div class="text-zinc-400">≈ ${fmt(b.count)} parses (${(b.pHi - b.pLo).toFixed(1)}%)</div>
-        ${b.estimated ? `<div class="text-xs italic text-zinc-500">estimated</div>` : ""}`;
+        ${b.estimated ? `<div class="text-xs italic text-zinc-500">estimated</div>` : ""}
+        ${b.example ? exampleHtml(b.example, b) : ""}`;
     }
     const cx = x(bins[i].lo + bw / 2);
     hoverLine.setAttribute("x1", `${cx}`);
@@ -139,4 +172,22 @@ export function mountChart(
     tooltip.style.left = `${left}px`;
     tooltip.style.top = `${e.clientY + 16}px`;
   });
+}
+
+/** Real log with the amount closest to `amount`. */
+function closest(logs: RealLog[], amount: number): RealLog | null {
+  let best: RealLog | null = null;
+  for (const l of logs) if (!best || Math.abs(l.amount - amount) < Math.abs(best.amount - amount)) best = l;
+  return best;
+}
+
+function exampleHtml(ex: RealLog, bin: Bin): string {
+  const inBin = ex.amount >= bin.lo && ex.amount < bin.hi;
+  return `
+    <div class="mt-1.5 border-t border-line pt-1.5 text-xs">
+      <div class="text-zinc-500">${inBin ? "Example log" : "Closest real log"}</div>
+      <div><span class="text-zinc-200">${esc(ex.log.name)}</span> <span class="text-zinc-500">${esc(ex.log.server)}</span></div>
+      <div class="text-zinc-400">${compact(ex.amount)} · rank ${fmt(ex.rank)}</div>
+      <div class="mt-0.5 text-gold">Click to open on Warcraft Logs ↗</div>
+    </div>`;
 }
