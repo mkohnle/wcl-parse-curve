@@ -159,7 +159,7 @@ export function renderAnalysis(
     const diff = need - p.amount;
     return `
       <li class="flex items-center gap-3 py-2">
-        <span class="size-2.5 shrink-0 rounded-full" style="background:${color};box-shadow:0 0 8px ${color}"></span>
+        <span class="size-2.5 shrink-0 rounded-full" style="background:${color}"></span>
         <span class="flex-1 text-zinc-300">${label}</span>
         <span class="text-right tabular-nums">
           <span class="font-semibold text-zinc-100">${compact(need)}</span>
@@ -195,7 +195,7 @@ export function renderAnalysis(
         </div>
         <div class="ml-auto text-right">
           <div><div class="label">${esc(main.label)}</div>
-            <div class="text-5xl font-bold tabular-nums leading-none" style="color:${color};text-shadow:0 0 24px ${color}55">${current}</div></div>
+            <div class="text-5xl font-bold tabular-nums leading-none" style="color:${color}">${current}</div></div>
         </div>
       </div>
       ${renderTreeToggle(trees, selectedTree)}
