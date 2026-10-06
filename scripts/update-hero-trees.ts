@@ -2,6 +2,7 @@
 // Run after major patches: pnpm update:hero-trees
 
 import { writeFileSync } from "node:fs";
+import { compactName } from "../src/shared/names.ts";
 
 const SOURCE = "https://www.raidbots.com/static/data/live/talents.json";
 const OUT = new URL("../src/server/data/hero-trees.json", import.meta.url);
@@ -25,7 +26,6 @@ interface Spec {
 }
 
 const specs = (await (await fetch(SOURCE)).json()) as Spec[];
-const noSpaces = (s: string) => s.replace(/\s+/g, "");
 
 const out = {
   source: SOURCE,
@@ -37,11 +37,13 @@ const out = {
 
 for (const spec of specs) {
   const trees = spec.subTreeNodes.flatMap((n) =>
-    n.entries.flatMap((e) => (e.traitSubTreeId && e.name ? [{ id: e.traitSubTreeId, name: e.name, entry: e.id }] : [])),
+    n.entries.flatMap((e) =>
+      e.traitSubTreeId && e.name ? [{ id: e.traitSubTreeId, name: e.name, entry: e.id }] : [],
+    ),
   );
   const keystoneIcon = (tree: number) =>
     spec.heroNodes.find((n) => n.subTreeId === tree && n.entryNode)?.entries[0]?.icon ?? null;
-  out.specs[`${noSpaces(spec.className)}-${noSpaces(spec.specName)}`] = trees.map(({ id, name }) => ({
+  out.specs[`${compactName(spec.className)}-${compactName(spec.specName)}`] = trees.map(({ id, name }) => ({
     id,
     name,
     icon: keystoneIcon(id),
@@ -54,4 +56,6 @@ for (const spec of specs) {
 }
 
 writeFileSync(OUT, `${JSON.stringify(out)}\n`);
-console.log(`${Object.keys(out.specs).length} specs, ${Object.keys(out.talents).length} hero talents → ${OUT.pathname}`);
+console.log(
+  `${Object.keys(out.specs).length} specs, ${Object.keys(out.talents).length} hero talents → ${OUT.pathname}`,
+);
