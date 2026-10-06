@@ -53,6 +53,8 @@ interface RawCharacterRanking {
   rankPercent: number;
   bracketPercent?: number;
   totalParses?: number;
+  /** e.g. 123 or "~123" */
+  rank?: number | string;
   server?: { name: string; region: string };
   bracket?: number;
 }
@@ -114,6 +116,8 @@ function toPlayers(ranking: RawFightRanking | undefined, group: RoleGroup, metri
     parse: c.rankPercent,
     bracketParse: c.bracketPercent ?? null,
     totalParses: c.totalParses ?? null,
+    rank: Number.parseInt(String(c.rank ?? "").replace("~", ""), 10) || null,
+    rankApprox: String(c.rank ?? "").startsWith("~"),
     bracket: c.bracket ?? null,
     realm: c.server?.name ?? null,
     region: c.server?.region ?? null,

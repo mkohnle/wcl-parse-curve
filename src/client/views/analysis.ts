@@ -1,6 +1,7 @@
 import type { HeroTree, Player } from "../../shared/api.ts";
 import type { Curve } from "../curve.ts";
 import { compact, esc, fmt, spaced } from "../format.ts";
+import type { Rank } from "../rank.ts";
 import { classColor, specIcon, TIERS, talentIcon, tierColor } from "../wow.ts";
 import { img, skeleton } from "./common.ts";
 
@@ -15,8 +16,12 @@ interface TreeOption extends HeroTree {
   share: number;
 }
 
-/** Header with name, spec and the log's parse: known before the leaderboard arrives. */
-function header(p: Player, main: LabeledParse): string {
+const rankLine = (r: Rank) =>
+  `<div class="mt-1 text-sm tabular-nums text-zinc-300">${r.rankApprox ? "~" : ""}#${fmt(r.rank)}
+    <span class="text-zinc-500">of ${r.totalKind === "approx" ? "~" : ""}${fmt(r.total)}${r.totalKind === "atLeast" ? "+" : ""}</span></div>`;
+
+/** Header with name, spec and the log's parse. rank undefined: still loading. */
+function header(p: Player, main: LabeledParse, rank: Rank | null | undefined): string {
   const cc = classColor(p.className);
   const current = Math.floor(main.parse);
   const color = tierColor(current);
@@ -36,6 +41,7 @@ function header(p: Player, main: LabeledParse): string {
       <div class="ml-auto text-right">
         <div class="label">${esc(main.label)}</div>
         <div class="text-5xl font-bold tabular-nums leading-none" style="color:${color}">${current}</div>
+        ${rank ? rankLine(rank) : rank === undefined ? skeleton("mt-1 ml-auto h-5 w-24") : ""}
       </div>
     </div>`;
 }
@@ -60,10 +66,10 @@ function treeToggle(trees: TreeOption[], selected: number | null): string {
 }
 
 /** Same layout as the analysis: chart and targets as placeholders until the leaderboard is in. */
-export function renderAnalysisLoading(p: Player, main: LabeledParse): string {
+export function renderAnalysisLoading(p: Player, main: LabeledParse, rank: Rank | undefined): string {
   return `
     <section class="panel overflow-hidden">
-      ${header(p, main)}
+      ${header(p, main, rank)}
       <div class="grid lg:grid-cols-[1fr_290px]">
         <div class="p-5">
           <div class="flex aspect-[900/340] w-full items-center justify-center rounded-sm bg-panel-2/60 text-sm text-zinc-500 animate-pulse">
@@ -83,6 +89,7 @@ export function renderAnalysis(
   p: Player,
   curve: Curve,
   main: LabeledParse,
+  rank: Rank,
   trees: TreeOption[],
   selectedTree: number | null,
 ): string {
@@ -121,7 +128,7 @@ export function renderAnalysis(
 
   return `
     <section class="panel overflow-hidden">
-      ${header(p, main)}
+      ${header(p, main, rank)}
       ${treeToggle(trees, selectedTree)}
       <div class="grid lg:grid-cols-[1fr_290px]">
         <div class="p-5">

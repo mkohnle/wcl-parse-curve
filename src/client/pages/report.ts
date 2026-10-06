@@ -6,6 +6,7 @@ import { buildCurve } from "../curve.ts";
 import { dom, errorMessage, pageDom, setBusy, setStatus } from "../dom.ts";
 import { sampledShare, treeCurve, treeShare } from "../hero-tree.ts";
 import { prefs } from "../prefs.ts";
+import { estimatedRank, loggedRank, rankOnLeaderboard } from "../rank.ts";
 import { addRecent } from "../recent.ts";
 import { navigate, type ReportRoute, registerPage, replaceRoute } from "../router.ts";
 import { DEMO_CODE, matchRealms } from "../search-input.ts";
@@ -136,11 +137,13 @@ async function showAnalysis(
   const main: LabeledParse = byKeyLevel
     ? { label: `+${meta?.keystoneLevel} parse`, parse: player.bracketParse as number }
     : { label: "Parse", parse: player.parse };
+  // WCL ranks the overall parse only, not the key level one
+  const logged = byKeyLevel ? null : loggedRank(player);
 
   // only the hero tree changed: re-render in place, no placeholder, no scroll
   const sameView = prev?.code === route.code && prev.fight === route.fight && prev.player === route.player;
   if (!sameView) {
-    analysisEl.innerHTML = renderAnalysisLoading(player, main);
+    analysisEl.innerHTML = renderAnalysisLoading(player, main, logged ?? undefined);
     analysisEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
@@ -169,7 +172,19 @@ async function showAnalysis(
     tree && share ? { label: `Among ${tree.name}`, parse: curve.percentileOf(player.amount) } : main;
   const trees = dist.heroTrees.map((t) => ({ ...t, share: sampledShare(dist.trees, t.id) }));
 
-  analysisEl.innerHTML = renderAnalysis(player, curve, shownParse, trees, share ? (tree?.id ?? null) : null);
+  const ownLog = { name: player.name, code: route.code, fight: route.fight as number };
+  const rank = share
+    ? estimatedRank(curve, player.amount)
+    : rankOnLeaderboard(dist, curve, ownLog, player.amount, logged);
+
+  analysisEl.innerHTML = renderAnalysis(
+    player,
+    curve,
+    shownParse,
+    rank,
+    trees,
+    share ? (tree?.id ?? null) : null,
+  );
   const logs = dist.points.flatMap(([rank, amount], i) => {
     const log = dist.logs[i];
     return log && (!share || dist.trees[i] === tree?.id) ? [{ rank, amount, log }] : [];

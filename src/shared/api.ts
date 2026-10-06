@@ -50,6 +50,10 @@ export interface Player {
   bracketParse: number | null;
   /** Population `parse` is measured against. */
   totalParses: number | null;
+  /** Rank behind `parse`, from Warcraft Logs. */
+  rank: number | null;
+  /** Warcraft Logs marks most ranks as estimates ("~123"). */
+  rankApprox: boolean;
   /** Bracket index (M+: key level - 1). */
   bracket: number | null;
   /** null if unknown (e.g. demo) */
