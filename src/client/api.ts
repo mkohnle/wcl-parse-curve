@@ -1,9 +1,14 @@
 import type {
   ApiError,
   Budget,
+  CharacterLog,
+  CharacterResponse,
   DistributionQuery,
   DistributionResponse,
   FightResponse,
+  Metric,
+  Realm,
+  Region,
   ReportResponse,
 } from "../shared/api.ts";
 
@@ -69,4 +74,31 @@ export const getFight = memo((code: string, fight: number) =>
 
 export const getDistribution = memo((q: DistributionQuery) =>
   getJson<DistributionResponse>("/api/distribution", { ...q }),
+);
+
+export const getRealms = memo((region: Region) => getJson<Realm[]>("/api/realms", { region }));
+
+export const getCharacter = memo((name: string, realm: string, region: Region) =>
+  getJson<CharacterResponse>("/api/character", { name, realm, region }),
+);
+
+export const getCharacterLogs = memo(
+  (
+    name: string,
+    realm: string,
+    region: Region,
+    enc: number,
+    metric: Metric,
+    diff: number,
+    keyLevel: boolean,
+  ) =>
+    getJson<CharacterLog[]>("/api/character/logs", {
+      name,
+      realm,
+      region,
+      enc,
+      metric,
+      diff,
+      keyLevel: keyLevel ? 1 : 0,
+    }),
 );

@@ -1,15 +1,33 @@
 import "./style.css";
-import type { FightResponse, ReportResponse } from "../shared/api.ts";
-import { captureAdminToken, getBudget, getDistribution, getFight, getReport } from "./api.ts";
+import type {
+  CharacterResponse,
+  FightResponse,
+  Metric,
+  Realm,
+  Region,
+  ReportResponse,
+} from "../shared/api.ts";
+import {
+  captureAdminToken,
+  getBudget,
+  getCharacter,
+  getCharacterLogs,
+  getDistribution,
+  getFight,
+  getRealms,
+  getReport,
+} from "./api.ts";
 import { mountChart } from "./chart.ts";
 import { buildCurve } from "./curve.ts";
 import { esc } from "./format.ts";
 import { sampledShare, treeCurve, treeShare } from "./hero-tree.ts";
-import { DEMO_CODE, parseReportInput } from "./report-input.ts";
+import { DEMO_CODE, matchRealms, parseCharacterInput, parseReportInput } from "./report-input.ts";
 import {
   type LabeledParse,
   renderAnalysis,
   renderAnalysisLoading,
+  renderCharacter,
+  renderCharacterLogs,
   renderFights,
   renderPlayers,
   renderReportHeader,
@@ -19,12 +37,15 @@ const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as 
 const form = $<HTMLFormElement>("load-form");
 const urlInput = $<HTMLInputElement>("url");
 const goButton = $<HTMLButtonElement>("go");
+const regionButton = $<HTMLButtonElement>("region");
+const suggestEl = $("suggest");
 const statusEl = $("status");
 const reportEl = $("report");
 const tooltip = $("tooltip");
 const budgetEl = $("budget");
 
-reportEl.innerHTML = `<div id="report-head"></div><div id="fights"></div><div id="players"></div><div id="analysis"></div>`;
+reportEl.innerHTML = `<div id="character"></div><div id="report-head"></div><div id="fights"></div><div id="players"></div><div id="analysis"></div>`;
+const charEl = $("character");
 const headEl = $("report-head");
 const fightsEl = $("fights");
 const playersEl = $("players");
@@ -39,9 +60,18 @@ interface Selection {
   tree: number | null;
 }
 
+/** A character, mirrored in the URL as ?char=Name-realm-slug-EU */
+interface CharacterRef {
+  name: string;
+  /** realm slug */
+  realm: string;
+  region: Region;
+}
+
 let report: ReportResponse | null = null;
 let fight: FightResponse | null = null;
 let selection: Selection | null = null;
+let character: CharacterResponse | null = null;
 /** Drops late responses from an old selection. */
 let generation = 0;
 
@@ -51,19 +81,25 @@ function setStatus(text: string, isError = false) {
 
 const errorMessage = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-function writeUrl(s: Selection, push: boolean) {
-  const params = new URLSearchParams({ report: s.code });
-  if (s.fight) params.set("fight", String(s.fight));
-  if (s.player) params.set("player", s.player);
-  if (s.tree) params.set("tree", String(s.tree));
+function setUrl(params: URLSearchParams, push: boolean) {
   const url = `?${params}`;
   if (url === location.search) return;
   if (push) history.pushState(null, "", url);
   else history.replaceState(null, "", url);
 }
 
-function readUrl(): Selection | null {
+function writeUrl(s: Selection, push: boolean) {
+  const params = new URLSearchParams({ report: s.code });
+  if (s.fight) params.set("fight", String(s.fight));
+  if (s.player) params.set("player", s.player);
+  if (s.tree) params.set("tree", String(s.tree));
+  setUrl(params, push);
+}
+
+function readUrl(): Selection | CharacterRef | null {
   const params = new URLSearchParams(location.search);
+  const char = params.get("char")?.match(/^([^-]+)-(.+)-(EU|US)$/);
+  if (char) return { name: char[1], realm: char[2], region: char[3] as Region };
   const code = params.get("report");
   if (!code) return null;
   return {
@@ -74,11 +110,15 @@ function readUrl(): Selection | null {
   };
 }
 
+const isCharacterRef = (s: Selection | CharacterRef): s is CharacterRef => "realm" in s;
+
 /** Load and render `next`, reusing what's on screen. */
 async function show(next: Selection, push = true) {
   const gen = ++generation;
   const prev = selection;
   selection = next;
+  character = null;
+  charEl.innerHTML = "";
   writeUrl(next, push);
   setStatus("");
 
@@ -183,6 +223,30 @@ async function show(next: Selection, push = true) {
   }
 }
 
+/** Character page: best and median parse per boss. */
+async function showCharacter(ref: CharacterRef, push = true) {
+  const gen = ++generation;
+  selection = null;
+  report = null;
+  fight = null;
+  headEl.innerHTML = fightsEl.innerHTML = playersEl.innerHTML = analysisEl.innerHTML = charEl.innerHTML = "";
+  setUrl(new URLSearchParams({ char: `${ref.name}-${ref.realm}-${ref.region}` }), push);
+  setStatus("Loading character…");
+  goButton.disabled = true;
+  try {
+    const c = await getCharacter(ref.name, ref.realm, ref.region);
+    if (gen !== generation) return;
+    character = c;
+    setStatus("");
+    charEl.innerHTML = renderCharacter(c);
+  } catch (e) {
+    if (gen === generation) setStatus(errorMessage(e), true);
+  } finally {
+    goButton.disabled = false;
+    showBudget();
+  }
+}
+
 /** API points left, shown in the footer. */
 async function showBudget() {
   const b = await getBudget().catch(() => null);
@@ -194,12 +258,48 @@ async function showBudget() {
   budgetEl.textContent = `Warcraft Logs API: ${Math.max(0, Math.floor(b.remaining))} of ${b.limit} points left this hour · resets in ${minutes} min`;
 }
 
-// ---------- events ----------
+// ---------- search ----------
 
-function submit() {
-  const input = parseReportInput(urlInput.value);
+const REGION_KEY = "region";
+let region: Region = "EU";
+try {
+  if (localStorage.getItem(REGION_KEY) === "US") region = "US";
+} catch {}
+regionButton.textContent = region;
+
+regionButton.addEventListener("click", () => {
+  region = region === "EU" ? "US" : "EU";
+  regionButton.textContent = region;
+  try {
+    localStorage.setItem(REGION_KEY, region);
+  } catch {}
+  updateSuggestions();
+  urlInput.focus();
+});
+
+/** "Name-Realm" typed and not a report link. */
+const characterInput = (value: string) => (/reports\//.test(value) ? null : parseCharacterInput(value));
+
+async function submit() {
+  hideSuggestions();
+  const value = urlInput.value;
+  const char = characterInput(value);
+  if (char) {
+    try {
+      const realm = matchRealms(await getRealms(region), char.realm)[0];
+      if (!realm) {
+        setStatus(`Unknown ${region} realm "${char.realm}".`, true);
+        return;
+      }
+      showCharacter({ name: char.name, realm: realm.slug, region });
+    } catch (e) {
+      setStatus(errorMessage(e), true);
+    }
+    return;
+  }
+  const input = parseReportInput(value);
   if (!input) {
-    setStatus("That doesn't look like a Warcraft Logs report link or code.", true);
+    setStatus("Paste a Warcraft Logs report link, or type a character as Name-Realm.", true);
     return;
   }
   show({ code: input.code, fight: input.fight, player: null, tree: null });
@@ -213,11 +313,77 @@ form.addEventListener("submit", (e) => {
 // load right away when a link is pasted
 urlInput.addEventListener("paste", () => setTimeout(submit));
 
-// optional: the page may not have a demo button
-document.getElementById("demo")?.addEventListener("click", () => {
-  urlInput.value = DEMO_CODE;
+// realm suggestions while typing "Name-Re…"
+let suggestions: Realm[] = [];
+let active = -1;
+
+function hideSuggestions() {
+  suggestions = [];
+  active = -1;
+  suggestEl.classList.add("hidden");
+}
+
+function renderSuggestions(name: string) {
+  suggestEl.innerHTML = suggestions
+    .map(
+      (r, i) =>
+        `<li data-realm="${i}" class="cursor-pointer px-3 py-1.5 ${i === active ? "bg-panel-2 text-gold" : "text-zinc-300 hover:bg-panel-2"}">
+          <span class="text-zinc-500">${esc(name)}-</span>${esc(r.name)}
+        </li>`,
+    )
+    .join("");
+  suggestEl.classList.toggle("hidden", !suggestions.length);
+}
+
+async function updateSuggestions() {
+  const char = characterInput(urlInput.value);
+  if (!char) {
+    hideSuggestions();
+    return;
+  }
+  const realms = await getRealms(region).catch(() => []);
+  const current = characterInput(urlInput.value);
+  if (!current) return;
+  const matches = matchRealms(realms, current.realm);
+  // nothing to suggest once the realm is typed out exactly
+  suggestions = matches[0]?.name.toLowerCase() === current.realm.toLowerCase() ? [] : matches.slice(0, 8);
+  active = -1;
+  renderSuggestions(current.name);
+}
+
+function pickSuggestion(i: number) {
+  const char = characterInput(urlInput.value);
+  const realm = suggestions[i];
+  if (!char || !realm) return;
+  urlInput.value = `${char.name}-${realm.name}`;
   submit();
+}
+
+urlInput.addEventListener("input", updateSuggestions);
+urlInput.addEventListener("blur", () => setTimeout(hideSuggestions, 150));
+urlInput.addEventListener("keydown", (e) => {
+  if (!suggestions.length) return;
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    const step = e.key === "ArrowDown" ? 1 : -1;
+    active = (active + step + suggestions.length) % suggestions.length;
+    renderSuggestions(characterInput(urlInput.value)?.name ?? "");
+  } else if (e.key === "Enter" && active >= 0) {
+    e.preventDefault();
+    pickSuggestion(active);
+  } else if (e.key === "Escape") {
+    hideSuggestions();
+  }
 });
+// mousedown, so it fires before the input's blur hides the list
+suggestEl.addEventListener("mousedown", (e) => {
+  const li = (e.target as HTMLElement).closest<HTMLElement>("[data-realm]");
+  if (!li) return;
+  e.preventDefault();
+  pickSuggestion(Number(li.dataset.realm));
+});
+
+// ---------- clicks ----------
 
 fightsEl.addEventListener("click", (e) => {
   const btn = (e.target as HTMLElement).closest<HTMLElement>("[data-fight]");
@@ -234,10 +400,66 @@ analysisEl.addEventListener("click", (e) => {
   if (btn && selection) show({ ...selection, tree: Number(btn.dataset.tree) || null });
 });
 
-window.addEventListener("popstate", () => {
-  const s = readUrl();
-  if (s) show(s, false);
+charEl.addEventListener("click", async (e) => {
+  const target = e.target as HTMLElement;
+  const c = character;
+  if (!c) return;
+
+  // a log: open it on the curve
+  const log = target.closest<HTMLElement>("[data-log]");
+  if (log) {
+    const [code, fightId] = (log.dataset.log ?? "").split(":");
+    show({ code, fight: Number(fightId), player: c.name, tree: null });
+    return;
+  }
+
+  // a boss: toggle its logs
+  const boss = target.closest<HTMLButtonElement>("[data-boss]");
+  if (!boss) return;
+  const enc = Number(boss.dataset.boss);
+  const list = charEl.querySelector<HTMLElement>(`[data-logs="${enc}"]`);
+  if (!list) return;
+  if (!list.classList.contains("hidden")) {
+    list.classList.add("hidden");
+    return;
+  }
+  list.classList.remove("hidden");
+  list.innerHTML = `<div class="px-3 py-2 text-sm text-zinc-500">Loading logs…</div>`;
+  const zone = c.zones.find((z) => z.bosses.some((b) => b.encounterID === enc));
+  try {
+    const logs = await getCharacterLogs(
+      c.name,
+      c.realm.slug,
+      c.region,
+      enc,
+      boss.dataset.metric as Metric,
+      Number(boss.dataset.diff),
+      zone?.mythicPlus ?? false,
+    );
+    list.innerHTML = renderCharacterLogs(logs, c.cls, zone?.mythicPlus ?? false);
+  } catch (err) {
+    list.innerHTML = `<div class="px-3 py-2 text-sm text-red-400">${esc(errorMessage(err))}</div>`;
+  } finally {
+    showBudget();
+  }
 });
+
+function showFromUrl(push: boolean) {
+  const s = readUrl();
+  if (!s) return false;
+  if (isCharacterRef(s)) {
+    region = s.region;
+    regionButton.textContent = region;
+    urlInput.value = `${s.name}-${s.realm}`;
+    showCharacter(s, push);
+  } else {
+    urlInput.value = s.code === DEMO_CODE ? DEMO_CODE : `https://www.warcraftlogs.com/reports/${s.code}`;
+    show(s, push);
+  }
+  return true;
+}
+
+window.addEventListener("popstate", () => showFromUrl(false));
 
 // missing boss icon: use the fallback, else hide
 document.addEventListener(
@@ -259,11 +481,4 @@ document.addEventListener(
 // ---------- start ----------
 
 captureAdminToken();
-const initial = readUrl();
-if (initial) {
-  urlInput.value =
-    initial.code === DEMO_CODE ? DEMO_CODE : `https://www.warcraftlogs.com/reports/${initial.code}`;
-  show(initial, false);
-} else {
-  showBudget();
-}
+if (!showFromUrl(false)) showBudget();

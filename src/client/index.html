@@ -22,10 +22,22 @@
             id="url"
             autocomplete="off"
             spellcheck="false"
-            aria-label="Warcraft Logs report URL or code"
-            placeholder="Paste a Warcraft Logs report link"
-            class="h-12 w-full rounded-sm border border-line bg-black/50 pr-12 pl-4 text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-gold/70"
+            aria-label="Warcraft Logs report link, or character as Name-Realm"
+            placeholder="Report link, or Name-Realm"
+            class="h-12 w-full rounded-sm border border-line bg-black/50 pr-24 pl-4 text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-gold/70"
           />
+          <button
+            id="region"
+            type="button"
+            title="Region for character search"
+            class="absolute inset-y-2 right-12 w-10 rounded-sm border border-line text-xs font-semibold text-zinc-300 hover:border-zinc-500"
+          >
+            EU
+          </button>
+          <ul
+            id="suggest"
+            class="absolute inset-x-0 top-full z-20 mt-1 hidden overflow-hidden rounded-sm border border-line bg-panel text-left text-sm shadow-lg"
+          ></ul>
           <button
             id="go"
             type="submit"

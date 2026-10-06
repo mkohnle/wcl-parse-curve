@@ -12,7 +12,7 @@ cp .env.example .env   # WCL API credentials: https://www.warcraftlogs.com/api/c
 pnpm dev               # http://localhost:3000
 ```
 
-Without credentials only the demo report works (type `demo`).
+Search for a report link, or a character as `Name-Realm` (EU/US toggle in the field). Without credentials only the demo report works (type `demo`).
 
 | Command | |
 | --- | --- |
@@ -31,7 +31,7 @@ Without credentials only the demo report works (type `demo`).
 
 ## API limits
 
-720 points per hour. A leaderboard page costs 1, a fight 4, a report 1.
+720 points per hour. A leaderboard page costs 1, a fight 4, a report 1, a character about 10 (1–2 plus 1 per M+ dungeon played; raid bosses +1 when opened), the realm list 3 (cached 7 days).
 
 - Lookups stop when fewer than 40 points are left.
 - After a 429 nothing is sent until `retry-after` has passed (otherwise WCL blocks the IP for an hour).

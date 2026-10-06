@@ -7,13 +7,15 @@ import type {
   LogRef,
   Metric,
   Player,
+  Region,
   Role,
 } from "../shared/api.ts";
-import { cached, DAY, HOUR, MINUTE } from "./cache.ts";
+import { cached, DAY, HOUR, MINUTE, prime } from "./cache.ts";
 import { config } from "./config.ts";
 import { demoFight, demoRankingPage, demoReport, isDemoCode, isDemoEncounter } from "./demo.ts";
 import { heroTreesOf } from "./hero-trees.ts";
 import { HttpError, int, str } from "./http.ts";
+import { currentZones, fetchCharacter, fetchCharacterLogs, fetchRealms } from "./wcl/characters.ts";
 import { ensureBudget, getBudget } from "./wcl/client.ts";
 import {
   FIGHT_COST,
@@ -127,6 +129,79 @@ async function getDistribution(q: DistributionQuery): Promise<DistributionRespon
     complete: last % PER_PAGE !== 0 || last < MAX_PAGE * PER_PAGE,
   };
 }
+
+// ---------- characters ----------
+
+const toRegion = (v: unknown): Region => {
+  if (v === "EU" || v === "US") return v;
+  throw new HttpError(400, "Region must be EU or US");
+};
+const isCharacterName = (s: string) => /^\p{L}{2,12}$/u.test(s);
+const isRealmSlug = (s: string) => /^[a-z0-9'-]{2,40}$/.test(s);
+
+const CHARACTER_TTL = 30 * MINUTE;
+const charLogsKey = (
+  region: Region,
+  realm: string,
+  name: string,
+  enc: number,
+  metric: string,
+  diff: number,
+  byKeyLevel: boolean,
+) => `charlogs|${region}|${realm}|${name.toLowerCase()}|${enc}|${metric}|${diff}|${byKeyLevel}`;
+
+api.get("/realms", async (req, res) => {
+  const region = toRegion(req.query.region);
+  res.json(
+    await cached(`realms|${region}`, 7 * DAY, async () => {
+      await ensureBudget(3);
+      return fetchRealms(region);
+    }),
+  );
+});
+
+api.get("/character", async (req, res) => {
+  const name = str(req.query.name);
+  const realm = str(req.query.realm);
+  const region = toRegion(req.query.region);
+  if (!isCharacterName(name) || !isRealmSlug(realm)) throw new HttpError(400, "Invalid character or realm");
+
+  const key = `char|${region}|${realm}|${name.toLowerCase()}`;
+  res.json(
+    await cached(key, CHARACTER_TTL, async () => {
+      await ensureBudget(12);
+      const zones = currentZones(await cached("zones", 6 * HOUR, fetchLatestZones));
+      const { character, runs } = await fetchCharacter(name, realm, region, zones);
+      // the M+ runs came along: opening a dungeon is then free
+      const diff = character.zones.find((z) => z.mythicPlus)?.difficulty ?? 0;
+      for (const [enc, r] of runs) {
+        prime(charLogsKey(region, realm, name, enc, r.metric, diff, true), CHARACTER_TTL, r.logs);
+      }
+      return character;
+    }),
+  );
+});
+
+api.get("/character/logs", async (req, res) => {
+  const name = str(req.query.name);
+  const realm = str(req.query.realm);
+  const region = toRegion(req.query.region);
+  const enc = int(req.query.enc);
+  const diff = int(req.query.diff);
+  const metric = req.query.metric === "hps" ? "hps" : "dps";
+  const byKeyLevel = req.query.keyLevel === "1";
+  if (!isCharacterName(name) || !isRealmSlug(realm) || !enc) throw new HttpError(400, "Invalid parameters");
+
+  const key = charLogsKey(region, realm, name, enc, metric, diff, byKeyLevel);
+  res.json(
+    await cached(key, CHARACTER_TTL, async () => {
+      await ensureBudget(1);
+      return fetchCharacterLogs(name, realm, region, enc, metric, diff, byKeyLevel);
+    }),
+  );
+});
+
+// ---------- reports ----------
 
 api.get("/report", async (req, res) => {
   const code = str(req.query.code);

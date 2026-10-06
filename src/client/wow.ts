@@ -3,6 +3,7 @@
 const ASSETS = "https://assets.rpglogs.com/img/warcraft";
 
 export const specIcon = (cls: string, spec: string) => `${ASSETS}/icons/large/${cls}-${spec}.jpg`;
+export const classIcon = (cls: string) => `${ASSETS}/icons/large/${cls}.jpg`;
 // M+ dungeons in reports carry a 50,000 / 100,000 offset (e.g. 112521 → 12521)
 export const bossIcon = (encounterId: number) => `${ASSETS}/bosses/${encounterId % 50_000}-icon.jpg`;
 export const zoneIcon = (zoneId: number) => `${ASSETS}/zones/zone-${zoneId}.png`;

@@ -77,6 +77,58 @@ export interface DistributionQuery {
   spec: string;
 }
 
+export type Region = "EU" | "US";
+
+export interface Realm {
+  name: string;
+  slug: string;
+}
+
+/** A character's best and median parse on one boss or dungeon. */
+export interface CharacterBoss {
+  encounterID: number;
+  name: string;
+  /** M+: highest key level run; best and median then only count runs at that key */
+  keyLevel: number | null;
+  /** null without kills */
+  best: number | null;
+  median: number | null;
+  kills: number;
+  bestAmount: number | null;
+  spec: string | null;
+  metric: Metric;
+}
+
+export interface CharacterZone {
+  id: number;
+  name: string;
+  mythicPlus: boolean;
+  difficulty: number;
+  bosses: CharacterBoss[];
+}
+
+export interface CharacterResponse {
+  name: string;
+  /** Class without spaces, e.g. "DeathKnight" */
+  cls: string;
+  realm: Realm;
+  region: Region;
+  zones: CharacterZone[];
+}
+
+/** One of a character's logs on a boss. */
+export interface CharacterLog {
+  code: string;
+  fight: number;
+  /** epoch ms */
+  date: number;
+  amount: number;
+  parse: number;
+  /** item level (raid) or key level (M+) */
+  bracket: number;
+  spec: string;
+}
+
 /** A player's log on Warcraft Logs. */
 export interface LogRef {
   name: string;

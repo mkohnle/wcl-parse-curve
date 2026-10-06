@@ -1,10 +1,19 @@
-import type { Fight, HeroTree, Player, ReportResponse, Role } from "../shared/api.ts";
+import type {
+  CharacterLog,
+  CharacterResponse,
+  Fight,
+  HeroTree,
+  Player,
+  ReportResponse,
+  Role,
+} from "../shared/api.ts";
 import type { Curve } from "./curve.ts";
 import { compact, duration, esc, fmt, spaced } from "./format.ts";
 import { DEMO_CODE } from "./report-input.ts";
 import {
   bossIcon,
   classColor,
+  classIcon,
   difficultyName,
   specIcon,
   TIERS,
@@ -222,4 +231,82 @@ export function renderAnalysis(
       </div>
       <p class="border-t border-line px-5 py-3 text-xs text-zinc-500">${note}</p>
     </section>`;
+}
+
+// ---------- characters ----------
+
+const parseCell = (v: number | null, cls: string) =>
+  `<span class="text-right tabular-nums ${cls}" style="color:${v === null ? "#52525b" : tierColor(v)}">${v === null ? "–" : Math.floor(v)}</span>`;
+
+export function renderCharacter(c: CharacterResponse): string {
+  const cc = classColor(c.cls);
+  const wclUrl = `https://www.warcraftlogs.com/character/${c.region.toLowerCase()}/${c.realm.slug}/${c.name.toLowerCase()}`;
+  const zones = c.zones.map((z) => {
+    const rows = z.bosses.map((b) => {
+      const played = b.kills > 0;
+      return `
+        <button type="button" data-boss="${b.encounterID}" data-metric="${b.metric}" data-diff="${z.difficulty}"
+          ${played ? "" : "disabled"}
+          class="grid w-full grid-cols-[2rem_1fr_3rem_3rem_3rem_4.5rem] items-center gap-3 px-3 py-1.5 text-left hover:bg-panel-2 disabled:opacity-40 disabled:hover:bg-transparent">
+          ${img(bossIcon(b.encounterID), "size-8")}
+          <span class="flex min-w-0 items-center gap-2">
+            <span class="truncate text-zinc-100">${esc(b.name)}</span>
+            ${b.spec ? img(specIcon(c.cls, b.spec.replace(/\s+/g, "")), "size-5") : ""}
+          </span>
+          ${z.mythicPlus ? `<span class="text-right tabular-nums text-zinc-200">${b.keyLevel ? `+${b.keyLevel}` : "–"}</span>` : ""}
+          ${parseCell(played ? b.best : null, "text-lg font-bold")}
+          ${parseCell(played ? b.median : null, "")}
+          <span class="text-right tabular-nums text-zinc-400">${b.kills}</span>
+          ${z.mythicPlus ? "" : `<span class="text-right tabular-nums text-zinc-400">${b.bestAmount ? compact(b.bestAmount) : ""}</span>`}
+        </button>
+        <div data-logs="${b.encounterID}" class="hidden border-t border-line bg-black/20"></div>`;
+    });
+    return `
+      <section>
+        <h3 class="label mb-2">${esc(z.name)}${z.mythicPlus ? " · parses at the highest key" : ` · ${difficultyName(z.difficulty)}`}</h3>
+        <div class="panel divide-y divide-line">
+          <div class="grid grid-cols-[2rem_1fr_3rem_3rem_3rem_4.5rem] gap-3 px-3 py-1.5 text-right">
+            <span></span><span class="label text-left">${z.mythicPlus ? "Dungeon" : "Boss"}</span>
+            ${z.mythicPlus ? `<span class="label">Key</span>` : ""}
+            <span class="label">Best</span><span class="label">Median</span><span class="label">${z.mythicPlus ? "Runs" : "Kills"}</span>
+            ${z.mythicPlus ? "" : `<span class="label">Best ${z.bosses.some((b) => b.metric === "hps") ? "HPS" : "DPS"}</span>`}
+          </div>
+          ${rows.join("")}
+        </div>
+      </section>`;
+  });
+  return `
+    <div class="space-y-6">
+      <div class="panel flex items-center gap-4 p-4">
+        ${img(classIcon(c.cls), "size-14 border-2", undefined, `border-color:${cc}`)}
+        <div class="min-w-0 flex-1">
+          <h2 class="truncate text-2xl font-bold" style="color:${cc}">${esc(c.name)}</h2>
+          <div class="text-zinc-400">${esc(spaced(c.cls))} · ${esc(c.realm.name)} (${c.region})</div>
+        </div>
+        <a href="${wclUrl}" target="_blank" rel="noreferrer" class="label hidden shrink-0 hover:text-gold sm:block">Open on Warcraft Logs ↗</a>
+      </div>
+      ${zones.join("")}
+      <p class="text-xs text-zinc-500">Best and median parse per boss. Click a boss to see the logs, then a log to open it on the curve.</p>
+    </div>`;
+}
+
+/** A character's logs on one boss; each row opens the log's analysis. */
+export function renderCharacterLogs(logs: CharacterLog[], cls: string, mythicPlus: boolean): string {
+  if (!logs.length) return `<div class="px-3 py-2 text-sm text-zinc-500">No ranked logs.</div>`;
+  const rows = logs.map(
+    (l) => `
+      <button type="button" data-log="${esc(l.code)}:${l.fight}"
+        class="grid w-full grid-cols-[2rem_1fr_3rem_3rem_3rem_4.5rem] items-center gap-3 px-3 py-1 text-left text-sm hover:bg-panel-2">
+        <span></span>
+        <span class="flex min-w-0 items-center gap-2 text-zinc-400">
+          ${img(specIcon(cls, l.spec.replace(/\s+/g, "")), "size-4")}
+          ${new Date(l.date).toLocaleDateString()}
+          <span class="text-zinc-500">${mythicPlus ? `+${l.bracket}` : `${l.bracket} ilvl`}</span>
+        </span>
+        <span class="text-right font-semibold tabular-nums" style="color:${tierColor(l.parse)}">${Math.floor(l.parse)}</span>
+        <span></span><span></span>
+        <span class="text-right tabular-nums text-zinc-300">${compact(l.amount)}</span>
+      </button>`,
+  );
+  return `<div class="divide-y divide-line/50">${rows.join("")}</div>`;
 }
