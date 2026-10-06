@@ -119,6 +119,7 @@ export interface RawCharacterRanking {
   rankPercent: number;
   bracketPercent?: number;
   totalParses?: number;
+  server?: { name: string; region: string };
   bracket?: number;
 }
 

@@ -201,6 +201,8 @@ export function demoFight(fightId: number): FightResponse | null {
         parse,
         bracketParse: clampParse(parse + (r() - 0.5) * 30),
         totalParses: overall.size,
+        realm: null,
+        region: null,
         bracket: null,
       };
     }
@@ -219,6 +221,8 @@ export function demoFight(fightId: number): FightResponse | null {
       parse: clampParse(bracketParse + (r() - 0.3) * 40),
       bracketParse,
       totalParses: overall.size,
+      realm: null,
+      region: null,
       bracket: KEY_BRACKET,
     };
   });

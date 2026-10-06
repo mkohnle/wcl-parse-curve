@@ -53,6 +53,9 @@ export interface Player {
   bracketParse: number | null;
   /** Population `parse` is measured against. */
   totalParses: number | null;
+  /** Realm name and region, null if unknown (e.g. demo). */
+  realm: string | null;
+  region: string | null;
   /** Bracket index (M+: key level - 1). */
   bracket: number | null;
 }

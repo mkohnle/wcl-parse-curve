@@ -278,6 +278,8 @@ function toPlayers(ranking: RawFightRanking | undefined, group: keyof typeof ROL
     bracketParse: c.bracketPercent ?? null,
     totalParses: c.totalParses ?? null,
     bracket: c.bracket ?? null,
+    realm: c.server?.name ?? null,
+    region: c.server?.region ?? null,
   }));
 }
 
