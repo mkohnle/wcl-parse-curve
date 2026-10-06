@@ -9,9 +9,10 @@ import type {
   ReportResponse,
   Role,
 } from "../shared/api.ts";
+import { MAX_PAGE, PAGE_SIZE } from "../shared/leaderboard.ts";
 import { probit } from "../shared/math.ts";
 import { heroTreesOf } from "./hero-trees.ts";
-import type { RankingEntry } from "./wcl/queries.ts";
+import type { RankingEntry } from "./wcl/leaderboards.ts";
 
 export const DEMO_CODE = "demo";
 export const isDemoCode = (code: string) => code.toLowerCase() === DEMO_CODE;
@@ -22,7 +23,8 @@ const KEY_LEVEL = 15;
 /** Bracket index = key level - 1. */
 const KEY_BRACKET = KEY_LEVEL - 1;
 
-export const isDemoEncounter = (enc: number) => enc === RAID_ENC || enc === DUNGEON_ENC;
+export const isDemoEncounter = (encounterId: number) =>
+  encounterId === RAID_ENC || encounterId === DUNGEON_ENC;
 
 export const demoReport: ReportResponse = {
   title: "Demo report",
@@ -31,7 +33,7 @@ export const demoReport: ReportResponse = {
     {
       id: 1,
       name: "Demo Boss",
-      encounterID: RAID_ENC,
+      encounterId: RAID_ENC,
       difficulty: 4,
       kill: true,
       keystoneLevel: null,
@@ -40,7 +42,7 @@ export const demoReport: ReportResponse = {
     {
       id: 2,
       name: "Demo Dungeon",
-      encounterID: DUNGEON_ENC,
+      encounterId: DUNGEON_ENC,
       difficulty: 10,
       kill: true,
       keystoneLevel: KEY_LEVEL,
@@ -49,7 +51,7 @@ export const demoReport: ReportResponse = {
   ],
 };
 
-type Member = [name: string, cls: string, spec: string, role: Role];
+type Member = [name: string, className: string, spec: string, role: Role];
 
 const RAID: Member[] = [
   ["Ironhide", "DeathKnight", "Blood", "tank"],
@@ -122,15 +124,17 @@ interface Board {
   skew: number;
 }
 
-function board(q: Pick<DistributionQuery, "enc" | "bracket" | "metric" | "cls" | "spec">): Board {
-  const r = random(`${q.enc}|${q.bracket}|${q.metric}|${q.cls}|${q.spec}`);
-  const tank = TANK_SPECS.has(`${q.cls}-${q.spec}`);
+function board(
+  q: Pick<DistributionQuery, "encounterId" | "bracket" | "metric" | "className" | "spec">,
+): Board {
+  const r = random(`${q.encounterId}|${q.bracket}|${q.metric}|${q.className}|${q.spec}`);
+  const tank = TANK_SPECS.has(`${q.className}-${q.spec}`);
   const base = q.metric === "hps" ? 180_000 : tank ? 110_000 : 230_000;
   // log-uniform size, ~800 to ~64k
   const size = Math.round(800 * 80 ** r());
   return {
     size: q.bracket ? Math.round(size / 4) + 300 : size,
-    median: base * (0.85 + 0.3 * r()) * (q.enc === DUNGEON_ENC ? 1.15 : 1),
+    median: base * (0.85 + 0.3 * r()) * (q.encounterId === DUNGEON_ENC ? 1.15 : 1),
     sigma: 0.16 + 0.1 * r(),
     skew: 0.03 * r(),
   };
@@ -141,15 +145,12 @@ function amountAtRank(b: Board, rank: number): number {
   return b.median * Math.exp(b.sigma * z + b.skew * Math.max(0, z) ** 2);
 }
 
-const PER_PAGE = 100;
-const MAX_PAGE = 20;
-
 /** Demo version of fetchRankingPage. No logs: there is nothing to link to. */
 export function demoRankingPage(q: DistributionQuery, page: number): RankingEntry[] {
   if (page > MAX_PAGE) return [];
   const b = board(q);
-  const first = (page - 1) * PER_PAGE + 1;
-  const count = Math.max(0, Math.min(PER_PAGE, b.size - first + 1));
+  const first = (page - 1) * PAGE_SIZE + 1;
+  const count = Math.max(0, Math.min(PAGE_SIZE, b.size - first + 1));
   const treeAt = demoTrees(q, b);
   return Array.from({ length: count }, (_, i) => ({
     amount: amountAtRank(b, first + i),
@@ -160,14 +161,14 @@ export function demoRankingPage(q: DistributionQuery, page: number): RankingEntr
 
 /** First hero tree's share drifts from top to bottom, so the filter shows a difference. */
 function demoTrees(q: DistributionQuery, b: Board): (rank: number) => number | null {
-  const [a, c] = heroTreesOf(q.cls, q.spec);
+  const [a, c] = heroTreesOf(q.className, q.spec);
   if (!a || !c) return () => null;
-  const r = random(`${q.enc}|${q.bracket}|${q.cls}|${q.spec}|trees`);
+  const r = random(`${q.encounterId}|${q.bracket}|${q.className}|${q.spec}|trees`);
   const top = 0.2 + 0.6 * r();
   const bottom = 0.2 + 0.6 * r();
   return (rank) => {
     const share = top + ((bottom - top) * rank) / b.size;
-    return random(`${q.cls}|${q.spec}|${rank}`)() < share ? a.id : c.id;
+    return random(`${q.className}|${q.spec}|${rank}`)() < share ? a.id : c.id;
   };
 }
 
@@ -179,12 +180,12 @@ const parseAt = (b: Board, rank: number) => Math.floor(100 * (1 - rank / b.size)
 export function demoFight(fightId: number): FightResponse | null {
   const fight = demoReport.fights.find((f) => f.id === fightId);
   if (!fight) return null;
-  const mythicPlus = fight.encounterID === DUNGEON_ENC;
+  const mythicPlus = fight.encounterId === DUNGEON_ENC;
 
-  const players = (mythicPlus ? DUNGEON : RAID).map(([name, cls, spec, role]): Player => {
+  const players = (mythicPlus ? DUNGEON : RAID).map(([name, className, spec, role]): Player => {
     const r = random(`${fight.id}|${name}`);
     const metric: Metric = role === "healer" ? "hps" : "dps";
-    const overall = board({ enc: fight.encounterID, bracket: 0, metric, cls, spec });
+    const overall = board({ encounterId: fight.encounterId, bracket: 0, metric, className, spec });
     // spread players from gray to orange
     const target = 3 + 94 * r();
 
@@ -193,7 +194,7 @@ export function demoFight(fightId: number): FightResponse | null {
       const parse = parseAt(overall, rank);
       return {
         name,
-        cls,
+        className,
         spec,
         role,
         metric,
@@ -208,12 +209,12 @@ export function demoFight(fightId: number): FightResponse | null {
     }
 
     // M+: key level parse from the key level board; overall parse is made up (WCL weighs key level)
-    const keyBoard = board({ enc: fight.encounterID, bracket: KEY_BRACKET, metric, cls, spec });
+    const keyBoard = board({ encounterId: fight.encounterId, bracket: KEY_BRACKET, metric, className, spec });
     const rank = Math.max(1, Math.round(keyBoard.size * (1 - target / 100)));
     const bracketParse = parseAt(keyBoard, rank);
     return {
       name,
-      cls,
+      className,
       spec,
       role,
       metric,
@@ -227,5 +228,5 @@ export function demoFight(fightId: number): FightResponse | null {
     };
   });
 
-  return { enc: fight.encounterID, diff: fight.difficulty, part: 0, players };
+  return { encounterId: fight.encounterId, difficulty: fight.difficulty, partition: 0, players };
 }

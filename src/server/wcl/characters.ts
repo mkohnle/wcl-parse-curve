@@ -6,10 +6,11 @@ import type {
   Metric,
   Realm,
   Region,
-  Zone,
 } from "../../shared/api.ts";
+import { compactName } from "../../shared/names.ts";
 import { HttpError } from "../http.ts";
 import { gql } from "./client.ts";
+import type { Zone } from "./zones.ts";
 
 const REGION_IDS: Record<Region, number> = { US: 1, EU: 2 };
 
@@ -39,7 +40,9 @@ const HEALER_SPECS = new Set([
   "Monk-Mistweaver",
   "Evoker-Preservation",
 ]);
-const canHeal = (cls: string) => [...HEALER_SPECS].some((s) => s.startsWith(`${cls}-`));
+const canHeal = (className: string) => [...HEALER_SPECS].some((s) => s.startsWith(`${className}-`));
+const isHealer = (className: string, spec: string | null | undefined) =>
+  Boolean(spec && HEALER_SPECS.has(`${className}-${compactName(spec)}`));
 
 export async function fetchRealms(region: Region): Promise<Realm[]> {
   const realms: Realm[] = [];
@@ -60,19 +63,6 @@ export async function fetchRealms(region: Region): Promise<Realm[]> {
   return realms.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/** Latest raid and M+ season, skipping PTR / beta / combined zones. */
-export function currentZones(zones: Zone[]): { raid: Zone | undefined; mythicPlus: Zone | undefined } {
-  // PTR copies don't always say so in the name, but all their encounter ids are 50,000+
-  // (live M+ seasons can have a few offset ids too)
-  const live = zones.filter(
-    (z) => !/PTR|Beta|Complete Raid|Dummy/i.test(z.name) && z.encounters.some((e) => e.id < 50_000),
-  );
-  return {
-    raid: live.find((z) => !/Mythic\+/i.test(z.name) && z.encounters.length >= 3),
-    mythicPlus: live.find((z) => /^Mythic\+ Season/i.test(z.name)),
-  };
-}
-
 interface RawZoneRankings {
   difficulty: number;
   rankings?: {
@@ -85,80 +75,52 @@ interface RawZoneRankings {
   }[];
 }
 
+interface RawCharacter {
+  name: string;
+  classID: number;
+  server: Realm;
+  zone?: RawZoneRankings;
+}
+
 /** M+ runs per dungeon, fetched with the character so opening a dungeon costs nothing. */
-export type MythicPlusRuns = Map<number, { metric: Metric; logs: CharacterLog[] }>;
+type MythicPlusRuns = Map<number, { metric: Metric; logs: CharacterLog[] }>;
 
 /**
- * Best and median parse per boss in the current raid and M+ season.
- * Costs 2 points (4 for classes that heal) plus 1 per M+ dungeon played.
+ * Best and median parse per boss in one zone (the current raid or M+ season).
+ * Costs 1 point (2 for classes that heal), plus 1 per M+ dungeon played.
  */
 export async function fetchCharacter(
   name: string,
   realm: string,
   region: Region,
-  zones: { raid: Zone | undefined; mythicPlus: Zone | undefined },
+  zone: Zone | undefined,
+  mythicPlus: boolean,
 ): Promise<{ character: CharacterResponse; runs: MythicPlusRuns }> {
-  const wanted = [
-    ["raid", zones.raid],
-    ["mplus", zones.mythicPlus],
-  ].filter((z): z is [string, Zone] => Boolean(z[1]));
-
   // healing classes also get hps parses; each boss then uses the metric of the spec played
-  const first = await query(false);
-  const cls = CLASSES[first.classID] ?? "";
-  const hps = canHeal(cls) ? await query(true) : null;
+  const dps = await query("dps");
+  const className = CLASSES[dps.classID] ?? "";
+  const hps = zone && canHeal(className) ? await query("hps") : null;
 
   const character: CharacterResponse = {
-    name: first.name,
-    cls,
-    realm: first.server,
+    name: dps.name,
+    className,
+    realm: dps.server,
     region,
-    zones: wanted.map(([key, zone]): CharacterZone => {
-      const dps = first[key] as RawZoneRankings;
-      const heal = hps?.[key] as RawZoneRankings | undefined;
-      return {
-        id: zone.id,
-        name: zone.name,
-        mythicPlus: key === "mplus",
-        difficulty: dps.difficulty,
-        bosses: zone.encounters.map((e): CharacterBoss => {
-          const d = dps.rankings?.find((r) => r.encounter.id === e.id);
-          const h = heal?.rankings?.find((r) => r.encounter.id === e.id);
-          // hps if the boss was played as a healer (or never as anything else)
-          const healer = (spec: string | null | undefined) =>
-            Boolean(spec && HEALER_SPECS.has(`${cls}-${spec}`));
-          const useHeal = Boolean(h?.totalKills && healer(h.spec) && (!d?.totalKills || healer(d.spec)));
-          const r = useHeal ? h : d;
-          return {
-            encounterID: e.id,
-            name: e.name,
-            keyLevel: null,
-            best: r?.totalKills ? r.rankPercent : null,
-            median: r?.totalKills ? r.medianPercent : null,
-            kills: r?.totalKills ?? 0,
-            // WCL's M+ bestAmount isn't DPS; the log list has the real numbers
-            bestAmount: r?.totalKills && key !== "mplus" ? r.bestAmount : null,
-            spec: r?.spec ?? null,
-            metric: useHeal ? "hps" : "dps",
-          };
-        }),
-      };
-    }),
+    zone: zone && dps.zone ? toZone(zone, mythicPlus, className, dps.zone, hps?.zone) : null,
   };
 
   // M+: best and median only from the highest key level, so fetch every run
-  const mplus = character.zones.find((z) => z.mythicPlus);
-  const played = mplus?.bosses.filter((b) => b.kills > 0) ?? [];
+  const played = mythicPlus ? (character.zone?.bosses.filter((b) => b.kills > 0) ?? []) : [];
   const runs: MythicPlusRuns = played.length
     ? await fetchRuns(
         name,
         realm,
         region,
-        played.map((b) => ({ id: b.encounterID, metric: b.metric })),
+        played.map((b) => ({ id: b.encounterId, metric: b.metric })),
       )
     : new Map();
   for (const b of played) {
-    const logs = runs.get(b.encounterID)?.logs ?? [];
+    const logs = runs.get(b.encounterId)?.logs ?? [];
     const keyLevel = Math.max(...logs.map((l) => l.bracket));
     const parses = logs
       .filter((l) => l.bracket === keyLevel)
@@ -172,29 +134,58 @@ export async function fetchCharacter(
   }
   return { character, runs };
 
-  async function query(heal: boolean) {
-    const metric = heal ? "hps" : "dps";
-    const fields = wanted
-      .map(([key, zone]) => `${key}: zoneRankings(zoneID: ${zone.id}, metric: ${metric})`)
-      .join("\n");
-    const data = await gql<{
-      characterData: {
-        character: ({ name: string; classID: number; server: Realm } & Record<string, unknown>) | null;
-      };
-    }>(
+  async function query(metric: Metric): Promise<RawCharacter> {
+    const field = zone ? `zone: zoneRankings(zoneID: ${zone.id}, metric: ${metric})` : "";
+    const data = await gql<{ characterData: { character: RawCharacter | null } }>(
       `query Character($name: String!, $realm: String!, $region: String!) {
         characterData { character(name: $name, serverSlug: $realm, serverRegion: $region) {
           name classID server { name slug }
-          ${fields}
+          ${field}
         } }
       }`,
       { name, realm, region },
-      wanted.length,
     );
     const c = data.characterData.character;
     if (!c) throw new HttpError(404, "Character not found (unknown to Warcraft Logs, or hidden)");
     return c;
   }
+}
+
+function toZone(
+  zone: Zone,
+  mythicPlus: boolean,
+  className: string,
+  dps: RawZoneRankings,
+  hps: RawZoneRankings | undefined,
+): CharacterZone {
+  return {
+    id: zone.id,
+    name: zone.name,
+    mythicPlus,
+    difficulty: dps.difficulty,
+    bosses: zone.encounters.map((e): CharacterBoss => {
+      const d = dps.rankings?.find((r) => r.encounter.id === e.id);
+      const h = hps?.rankings?.find((r) => r.encounter.id === e.id);
+      // hps if the boss was played as a healer (or never as anything else)
+      const useHps = Boolean(
+        h?.totalKills && isHealer(className, h.spec) && (!d?.totalKills || isHealer(className, d.spec)),
+      );
+      const r = useHps ? h : d;
+      const played = Boolean(r?.totalKills);
+      return {
+        encounterId: e.id,
+        name: e.name,
+        keyLevel: null,
+        best: played ? (r?.rankPercent ?? null) : null,
+        median: played ? (r?.medianPercent ?? null) : null,
+        kills: r?.totalKills ?? 0,
+        // WCL's M+ bestAmount isn't DPS; the log list has the real numbers
+        bestAmount: played && !mythicPlus ? (r?.bestAmount ?? null) : null,
+        spec: r?.spec ? compactName(r.spec) : null,
+        metric: useHps ? "hps" : "dps",
+      };
+    }),
+  };
 }
 
 interface RawRank {
@@ -215,7 +206,7 @@ const toLogs = (ranks: RawRank[] | undefined): CharacterLog[] =>
       amount: r.amount,
       parse: r.rankPercent,
       bracket: r.bracketData,
-      spec: r.spec,
+      spec: compactName(r.spec),
     }))
     .sort((a, b) => b.date - a.date);
 
@@ -247,27 +238,29 @@ export async function fetchCharacterLogs(
   name: string,
   realm: string,
   region: Region,
-  encounterID: number,
+  encounterId: number,
   metric: Metric,
   difficulty: number,
   byKeyLevel: boolean,
 ): Promise<CharacterLog[]> {
   const data = await gql<{
-    characterData: {
-      character: {
-        encounterRankings: {
-          ranks?: RawRank[];
-        };
-      } | null;
-    };
+    characterData: { character: { encounterRankings: { ranks?: RawRank[] } } | null };
   }>(
-    `query CharacterLogs($name: String!, $realm: String!, $region: String!, $enc: Int!,
-                         $metric: CharacterRankingMetricType, $diff: Int, $byBracket: Boolean) {
+    `query CharacterLogs($name: String!, $realm: String!, $region: String!, $encounter: Int!,
+                         $metric: CharacterRankingMetricType, $difficulty: Int, $byBracket: Boolean) {
       characterData { character(name: $name, serverSlug: $realm, serverRegion: $region) {
-        encounterRankings(encounterID: $enc, metric: $metric, difficulty: $diff, byBracket: $byBracket)
+        encounterRankings(encounterID: $encounter, metric: $metric, difficulty: $difficulty, byBracket: $byBracket)
       } }
     }`,
-    { name, realm, region, enc: encounterID, metric, diff: difficulty || undefined, byBracket: byKeyLevel },
+    {
+      name,
+      realm,
+      region,
+      encounter: encounterId,
+      metric,
+      difficulty: difficulty || undefined,
+      byBracket: byKeyLevel,
+    },
   );
   const c = data.characterData.character;
   if (!c) throw new HttpError(404, "Character not found");
