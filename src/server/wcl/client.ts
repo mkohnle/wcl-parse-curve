@@ -161,10 +161,10 @@ export async function getBudget(): Promise<Budget> {
 export async function ensureBudget(points: number): Promise<void> {
   const b = await getBudget();
   if (b.remaining - points < RESERVE) {
+    console.warn(`API budget low: ${Math.floor(b.remaining)} of ${b.limit} points left`);
     throw new HttpError(
       503,
-      `The Warcraft Logs API budget for this hour is nearly used up (${Math.floor(b.remaining)} of ${b.limit} points left). ` +
-        `It resets in ${Math.max(1, Math.ceil(b.resetIn / 60))} min. The demo report works in the meantime.`,
+      `Too many lookups right now. Try again in ${Math.max(1, Math.ceil(b.resetIn / 60))} min. The demo report works in the meantime.`,
     );
   }
 }

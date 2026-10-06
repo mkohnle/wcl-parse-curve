@@ -17,3 +17,6 @@ services:
         sync: false
       - key: WCL_CLIENT_SECRET
         sync: false
+      # optional: open /?admin=<token> once to see the API budget
+      - key: ADMIN_TOKEN
+        sync: false
