@@ -1,11 +1,19 @@
 export const MINUTE = 60_000;
 export const HOUR = 60 * MINUTE;
+export const DAY = 24 * HOUR;
 
 const MAX_ENTRIES = 1000;
 const entries = new Map<string, { value: Promise<unknown>; expires: number }>();
 
-/** Cache `compute` for `ttlMs`. Concurrent callers share the promise; failures aren't cached. */
-export function cached<T>(key: string, ttlMs: number, compute: () => Promise<T>): Promise<T> {
+/**
+ * Cache `compute` for `ttl` ms, or for `ttl(value)` once it resolved.
+ * Concurrent callers share the promise; failures aren't cached.
+ */
+export function cached<T>(
+  key: string,
+  ttl: number | ((value: T) => number),
+  compute: () => Promise<T>,
+): Promise<T> {
   const now = Date.now();
   const hit = entries.get(key);
   if (hit && now < hit.expires) return hit.value as Promise<T>;
@@ -15,9 +23,16 @@ export function cached<T>(key: string, ttlMs: number, compute: () => Promise<T>)
   }
 
   const value = compute();
-  entries.set(key, { value, expires: now + ttlMs });
-  value.catch(() => {
-    if (entries.get(key)?.value === value) entries.delete(key);
-  });
+  // until resolved, keep it so concurrent callers share the request
+  const entry = { value: value as Promise<unknown>, expires: Number.POSITIVE_INFINITY };
+  entries.set(key, entry);
+  value.then(
+    (v) => {
+      entry.expires = Date.now() + (typeof ttl === "number" ? ttl : ttl(v));
+    },
+    () => {
+      if (entries.get(key) === entry) entries.delete(key);
+    },
+  );
   return value;
 }

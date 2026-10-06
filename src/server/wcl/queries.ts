@@ -47,13 +47,17 @@ interface RawFight extends Omit<Fight, "duration"> {
   endTime: number;
 }
 
-export async function fetchReport(code: string): Promise<ReportResponse> {
+/** `endTime`: when the log ended (epoch ms); recent means it may still be live. */
+export async function fetchReport(code: string): Promise<{ report: ReportResponse; endTime: number }> {
   const data = await gql<{
-    reportData: { report: { title: string; zone: ReportResponse["zone"]; fights: RawFight[] } | null };
+    reportData: {
+      report: { title: string; endTime: number; zone: ReportResponse["zone"]; fights: RawFight[] } | null;
+    };
   }>(
     `query Report($code: String!) {
       reportData { report(code: $code) {
         title
+        endTime
         zone { id name }
         fights { id name encounterID difficulty kill keystoneLevel startTime endTime }
       } }
@@ -63,15 +67,18 @@ export async function fetchReport(code: string): Promise<ReportResponse> {
   const report = data.reportData.report;
   if (!report) throw new HttpError(404, "Report not found");
   return {
-    title: report.title,
-    zone: report.zone,
-    fights: report.fights
-      .filter((f) => f.encounterID > 0)
-      .map(({ startTime, endTime, ...f }) => ({
-        ...f,
-        kill: Boolean(f.kill),
-        duration: endTime - startTime,
-      })),
+    endTime: report.endTime,
+    report: {
+      title: report.title,
+      zone: report.zone,
+      fights: report.fights
+        .filter((f) => f.encounterID > 0)
+        .map(({ startTime, endTime, ...f }) => ({
+          ...f,
+          kill: Boolean(f.kill),
+          duration: endTime - startTime,
+        })),
+    },
   };
 }
 

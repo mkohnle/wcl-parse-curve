@@ -7,7 +7,7 @@ import type {
   Player,
   Role,
 } from "../shared/api.ts";
-import { cached, HOUR, MINUTE } from "./cache.ts";
+import { cached, DAY, HOUR, MINUTE } from "./cache.ts";
 import { demoFight, demoRankingAmounts, demoReport, isDemoCode, isDemoEncounter } from "./demo.ts";
 import { HttpError, int, str } from "./http.ts";
 import { ensureBudget, getBudget } from "./wcl/client.ts";
@@ -108,13 +108,16 @@ api.get("/report", async (req, res) => {
     return;
   }
   if (!isReportCode(code)) throw new HttpError(400, "Invalid report code");
-  // short: live logs still gain fights
-  res.json(
-    await cached(`report|${code}`, 15 * MINUTE, async () => {
+  // live logs still gain fights: cache those briefly
+  const { report } = await cached(
+    `report|${code}`,
+    (r) => (Date.now() - r.endTime > 30 * MINUTE ? DAY : 5 * MINUTE),
+    async () => {
       await ensureBudget(1);
       return fetchReport(code);
-    }),
+    },
   );
+  res.json(report);
 });
 
 api.get("/fight", async (req, res) => {
@@ -128,10 +131,15 @@ api.get("/fight", async (req, res) => {
   }
   if (!isReportCode(code) || !fightId) throw new HttpError(400, "Invalid parameters");
 
-  const rankings = await cached(`fight|${code}|${fightId}`, 10 * MINUTE, async () => {
-    await ensureBudget(FIGHT_COST);
-    return fetchFightRankings(code, fightId);
-  });
+  // not ranked yet (still processing): retry soon
+  const rankings = await cached(
+    `fight|${code}|${fightId}`,
+    (r) => (r.dps?.data.length ? DAY : 5 * MINUTE),
+    async () => {
+      await ensureBudget(FIGHT_COST);
+      return fetchFightRankings(code, fightId);
+    },
+  );
   if (req.query.debug) {
     res.json(rankings);
     return;
