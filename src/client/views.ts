@@ -1,8 +1,17 @@
-import type { Fight, Player, ReportResponse, Role } from "../shared/api.ts";
+import type { Fight, HeroTree, Player, ReportResponse, Role } from "../shared/api.ts";
 import type { Curve } from "./curve.ts";
 import { compact, duration, esc, fmt, spaced } from "./format.ts";
 import { DEMO_CODE } from "./report-input.ts";
-import { bossIcon, classColor, difficultyName, specIcon, TIERS, tierColor, zoneIcon } from "./wow.ts";
+import {
+  bossIcon,
+  classColor,
+  difficultyName,
+  specIcon,
+  TIERS,
+  talentIcon,
+  tierColor,
+  zoneIcon,
+} from "./wow.ts";
 
 const img = (src: string, cls: string, fallback?: string, style = "") =>
   `<img src="${src}" alt="" loading="lazy" class="icon ${cls}"${fallback ? ` data-fallback="${fallback}"` : ""}${style ? ` style="${style}"` : ""} />`;
@@ -106,8 +115,39 @@ export interface LabeledParse {
   parse: number;
 }
 
-/** main: the parse the curve is built for. */
-export function renderAnalysis(p: Player, curve: Curve, main: LabeledParse): string {
+/** A hero tree with its share among the sampled leaderboard entries (0-1). */
+export interface TreeOption extends HeroTree {
+  share: number;
+}
+
+function renderTreeToggle(trees: TreeOption[], selected: number | null): string {
+  if (!trees.some((t) => t.share > 0)) return "";
+  const button = (id: number | null, label: string, share?: number, icon?: string | null) => {
+    const on = id === selected;
+    const empty = share === 0;
+    return `<button type="button" data-tree="${id ?? ""}" ${empty ? "disabled" : ""}
+      class="flex items-center gap-1.5 rounded-sm border px-3 py-1 text-sm transition ${
+        on ? "border-gold/80 bg-gold/10 text-gold" : "border-line text-zinc-300 hover:border-zinc-500"
+      } disabled:cursor-not-allowed disabled:opacity-40">
+      ${icon ? img(talentIcon(icon), "size-5") : ""}${esc(label)}${share === undefined ? "" : ` <span class="text-zinc-500">${Math.round(share * 100)}%</span>`}
+    </button>`;
+  };
+  return `
+    <div class="flex flex-wrap items-center gap-2 border-b border-line px-5 py-3">
+      <span class="label mr-1" title="Share among the sampled top of the leaderboard">Hero tree</span>
+      ${button(null, "All")}
+      ${trees.map((t) => button(t.id, t.name, t.share, t.icon)).join("")}
+    </div>`;
+}
+
+/** main: the parse the curve is built for. selectedTree: hero tree the curve is limited to. */
+export function renderAnalysis(
+  p: Player,
+  curve: Curve,
+  main: LabeledParse,
+  trees: TreeOption[],
+  selectedTree: number | null,
+): string {
   const cc = classColor(p.cls);
   const metric = p.metric.toUpperCase();
   // the log's parse; the curve is pinned to it
@@ -137,8 +177,10 @@ export function renderAnalysis(p: Player, curve: Curve, main: LabeledParse): str
   const stat = (label: string, value: string) =>
     `<div><div class="label">${label}</div><div class="text-lg font-semibold tabular-nums text-zinc-100">${value}</div></div>`;
 
-  const note =
-    curve.exactRanks >= curve.total
+  const tree = trees.find((t) => t.id === selectedTree);
+  const note = tree
+    ? `Ranked only among ${esc(tree.name)} players. Their share below the sampled top of the leaderboard is estimated, so this is not a Warcraft Logs number.`
+    : curve.exactRanks >= curve.total
       ? `Based on the complete leaderboard of ${fmt(curve.total)} parses.`
       : `The top ${fmt(curve.exactRanks)} of ${fmt(curve.total)} parses are real leaderboard data. Below that the curve is estimated and passes through this player's log parse.`;
 
@@ -156,6 +198,7 @@ export function renderAnalysis(p: Player, curve: Curve, main: LabeledParse): str
             <div class="text-5xl font-bold tabular-nums leading-none" style="color:${color};text-shadow:0 0 24px ${color}55">${current}</div></div>
         </div>
       </div>
+      ${renderTreeToggle(trees, selectedTree)}
       <div class="grid lg:grid-cols-[1fr_290px]">
         <div class="p-5">
           <div id="chart" class="relative"></div>

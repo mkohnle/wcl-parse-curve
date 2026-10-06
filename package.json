@@ -13,6 +13,7 @@
     "dev:client": "vite",
     "dev:server": "node --watch --env-file-if-exists=.env src/server/main.ts --dev",
     "build": "vite build",
+    "update:hero-trees": "node scripts/update-hero-trees.ts",
     "start": "vite build && pnpm serve",
     "serve": "node --env-file-if-exists=.env src/server/main.ts",
     "typecheck": "tsc",

@@ -77,9 +77,31 @@ export interface DistributionQuery {
   spec: string;
 }
 
+/** A player's log on Warcraft Logs. */
+export interface LogRef {
+  name: string;
+  /** e.g. "Onyxia (EU)" */
+  server: string;
+  code: string;
+  fight: number;
+}
+
+export interface HeroTree {
+  id: number;
+  name: string;
+  /** keystone talent icon name, e.g. "inv_ability_slayerwarrior_slayersdominance" */
+  icon: string | null;
+}
+
 export interface DistributionResponse {
   /** Sampled [rank, amount] points, best first (top 2,000 max). */
   points: [rank: number, amount: number][];
+  /** The log behind each point (same order), null if hidden. */
+  logs: (LogRef | null)[];
+  /** Hero tree id of each point (same order), null if unknown. */
+  trees: (number | null)[];
+  /** The spec's hero trees. */
+  heroTrees: HeroTree[];
   /** True if `points` reach the end of the leaderboard. */
   complete: boolean;
 }

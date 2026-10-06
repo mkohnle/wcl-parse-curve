@@ -10,6 +10,8 @@ import type {
   Role,
 } from "../shared/api.ts";
 import { probit } from "../shared/math.ts";
+import { heroTreesOf } from "./hero-trees.ts";
+import type { RankingEntry } from "./wcl/queries.ts";
 
 export const DEMO_CODE = "demo";
 export const isDemoCode = (code: string) => code.toLowerCase() === DEMO_CODE;
@@ -142,13 +144,31 @@ function amountAtRank(b: Board, rank: number): number {
 const PER_PAGE = 100;
 const MAX_PAGE = 20;
 
-/** Demo version of fetchRankingAmounts. */
-export function demoRankingAmounts(q: DistributionQuery, page: number): number[] {
+/** Demo version of fetchRankingPage. No logs: there is nothing to link to. */
+export function demoRankingPage(q: DistributionQuery, page: number): RankingEntry[] {
   if (page > MAX_PAGE) return [];
   const b = board(q);
   const first = (page - 1) * PER_PAGE + 1;
   const count = Math.max(0, Math.min(PER_PAGE, b.size - first + 1));
-  return Array.from({ length: count }, (_, i) => amountAtRank(b, first + i));
+  const treeAt = demoTrees(q, b);
+  return Array.from({ length: count }, (_, i) => ({
+    amount: amountAtRank(b, first + i),
+    log: null,
+    tree: treeAt(first + i),
+  }));
+}
+
+/** First hero tree's share drifts from top to bottom, so the filter shows a difference. */
+function demoTrees(q: DistributionQuery, b: Board): (rank: number) => number | null {
+  const [a, c] = heroTreesOf(q.cls, q.spec);
+  if (!a || !c) return () => null;
+  const r = random(`${q.enc}|${q.bracket}|${q.cls}|${q.spec}|trees`);
+  const top = 0.2 + 0.6 * r();
+  const bottom = 0.2 + 0.6 * r();
+  return (rank) => {
+    const share = top + ((bottom - top) * rank) / b.size;
+    return random(`${q.cls}|${q.spec}|${rank}`)() < share ? a.id : c.id;
+  };
 }
 
 // ---------- fights ----------

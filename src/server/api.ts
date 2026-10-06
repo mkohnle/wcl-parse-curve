@@ -1,22 +1,27 @@
+import { timingSafeEqual } from "node:crypto";
 import { type ErrorRequestHandler, Router } from "express";
 import type {
   DistributionQuery,
   DistributionResponse,
   FightResponse,
+  LogRef,
   Metric,
   Player,
   Role,
 } from "../shared/api.ts";
 import { cached, DAY, HOUR, MINUTE } from "./cache.ts";
-import { demoFight, demoRankingAmounts, demoReport, isDemoCode, isDemoEncounter } from "./demo.ts";
+import { config } from "./config.ts";
+import { demoFight, demoRankingPage, demoReport, isDemoCode, isDemoEncounter } from "./demo.ts";
+import { heroTreesOf } from "./hero-trees.ts";
 import { HttpError, int, str } from "./http.ts";
 import { ensureBudget, getBudget } from "./wcl/client.ts";
 import {
   FIGHT_COST,
   fetchFightRankings,
   fetchLatestZones,
-  fetchRankingAmounts,
+  fetchRankingPage,
   fetchReport,
+  type RankingEntry,
   type RawFightRanking,
 } from "./wcl/queries.ts";
 
@@ -35,8 +40,18 @@ api.get("/health", (_req, res) => {
   res.json({ ok: true });
 });
 
+/** Admin only: in dev, or with the ADMIN_TOKEN header. Others get a plain 404. */
+const isAdmin = (token: string | undefined) => {
+  if (config.dev) return true;
+  if (!config.adminToken || !token) return false;
+  const a = Buffer.from(token);
+  const b = Buffer.from(config.adminToken);
+  return a.length === b.length && timingSafeEqual(a, b);
+};
+
 /** Points left, or null if WCL isn't reachable. */
-api.get("/budget", async (_req, res) => {
+api.get("/budget", async (req, res) => {
+  if (!isAdmin(req.get("x-admin-token"))) throw new HttpError(404, "Not found");
   res.json(await getBudget().catch(() => null));
 });
 
@@ -70,12 +85,13 @@ const DISTRIBUTION_COST = SAMPLE_PAGES.length + 4;
 async function getDistribution(q: DistributionQuery): Promise<DistributionResponse> {
   const demo = isDemoEncounter(q.enc);
   if (!demo) await ensureBudget(DISTRIBUTION_COST);
-  const fetchPage = async (p: number) => (demo ? demoRankingAmounts(q, p) : fetchRankingAmounts(q, p));
+  const fetchPage = async (p: number) => (demo ? demoRankingPage(q, p) : fetchRankingPage(q, p));
 
-  const pages = new Map<number, number[]>();
+  const pages = new Map<number, RankingEntry[]>();
   const load = async (p: number) => {
-    pages.set(p, await fetchPage(p));
-    return (pages.get(p) as number[]).length;
+    const entries = await fetchPage(p);
+    pages.set(p, entries);
+    return entries.length;
   };
 
   if (!(await load(1))) throw new HttpError(404, "No rankings found for that selection");
@@ -92,13 +108,24 @@ async function getDistribution(q: DistributionQuery): Promise<DistributionRespon
     }
   }
 
-  const points: [number, number][] = [...pages]
-    .sort(([a], [b]) => a - b)
-    .flatMap(([p, amounts]) =>
-      amounts.map((a, i): [number, number] => [(p - 1) * PER_PAGE + i + 1, Math.round(a)]),
-    );
+  const points: [number, number][] = [];
+  const logs: (LogRef | null)[] = [];
+  const trees: (number | null)[] = [];
+  for (const [p, entries] of [...pages].sort(([a], [b]) => a - b)) {
+    entries.forEach((e, i) => {
+      points.push([(p - 1) * PER_PAGE + i + 1, Math.round(e.amount)]);
+      logs.push(e.log);
+      trees.push(e.tree);
+    });
+  }
   const last = points[points.length - 1][0];
-  return { points, complete: last % PER_PAGE !== 0 || last < MAX_PAGE * PER_PAGE };
+  return {
+    points,
+    logs,
+    trees,
+    heroTrees: heroTreesOf(q.cls, q.spec),
+    complete: last % PER_PAGE !== 0 || last < MAX_PAGE * PER_PAGE,
+  };
 }
 
 api.get("/report", async (req, res) => {

@@ -1,9 +1,10 @@
 import "./style.css";
 import type { FightResponse, ReportResponse } from "../shared/api.ts";
-import { getBudget, getDistribution, getFight, getReport } from "./api.ts";
+import { captureAdminToken, getBudget, getDistribution, getFight, getReport } from "./api.ts";
 import { mountChart } from "./chart.ts";
 import { buildCurve } from "./curve.ts";
 import { esc } from "./format.ts";
+import { sampledShare, treeCurve, treeShare } from "./hero-tree.ts";
 import { DEMO_CODE, parseReportInput } from "./report-input.ts";
 import {
   type LabeledParse,
@@ -21,7 +22,6 @@ const goButton = $<HTMLButtonElement>("go");
 const statusEl = $("status");
 const reportEl = $("report");
 const tooltip = $("tooltip");
-const demoButton = $<HTMLButtonElement>("demo");
 const budgetEl = $("budget");
 
 reportEl.innerHTML = `<div id="report-head"></div><div id="fights"></div><div id="players"></div><div id="analysis"></div>`;
@@ -35,6 +35,8 @@ interface Selection {
   code: string;
   fight: number | null;
   player: string | null;
+  /** hero tree id, null = whole spec */
+  tree: number | null;
 }
 
 let report: ReportResponse | null = null;
@@ -53,6 +55,7 @@ function writeUrl(s: Selection, push: boolean) {
   const params = new URLSearchParams({ report: s.code });
   if (s.fight) params.set("fight", String(s.fight));
   if (s.player) params.set("player", s.player);
+  if (s.tree) params.set("tree", String(s.tree));
   const url = `?${params}`;
   if (url === location.search) return;
   if (push) history.pushState(null, "", url);
@@ -63,7 +66,12 @@ function readUrl(): Selection | null {
   const params = new URLSearchParams(location.search);
   const code = params.get("report");
   if (!code) return null;
-  return { code, fight: Number(params.get("fight")) || null, player: params.get("player") };
+  return {
+    code,
+    fight: Number(params.get("fight")) || null,
+    player: params.get("player"),
+    tree: Number(params.get("tree")) || null,
+  };
 }
 
 /** Load and render `next`, reusing what's on screen. */
@@ -121,8 +129,12 @@ async function show(next: Selection, push = true) {
       analysisEl.innerHTML = "";
       return;
     }
-    analysisEl.innerHTML = renderAnalysisLoading(player);
-    analysisEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    // only the hero tree changed: re-render in place, no placeholder, no scroll
+    const sameView = prev?.code === next.code && prev.fight === next.fight && prev.player === next.player;
+    if (!sameView) {
+      analysisEl.innerHTML = renderAnalysisLoading(player);
+      analysisEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
 
     // overall M+ parse weighs key level; use the key level leaderboard instead
     const byKeyLevel = isMythicPlus && player.bracket != null && player.bracketParse != null;
@@ -141,13 +153,26 @@ async function show(next: Selection, push = true) {
     });
     if (gen !== generation) return;
 
-    const curve = buildCurve(dist.points, {
+    const specCurve = buildCurve(dist.points, {
       total: byKeyLevel ? null : player.totalParses,
       complete: dist.complete,
       anchor: { amount: player.amount, parse: main.parse },
     });
-    analysisEl.innerHTML = renderAnalysis(player, curve, main);
-    mountChart($("chart"), tooltip, curve, player, main.parse);
+
+    // optional hero tree view: rank only among that tree
+    const tree = dist.heroTrees.find((t) => t.id === next.tree);
+    const share = tree ? treeShare(dist.points, dist.trees, tree.id) : null;
+    const curve = share ? treeCurve(specCurve, share) : specCurve;
+    const shown: LabeledParse =
+      tree && share ? { label: `Among ${tree.name}`, parse: curve.percentileOf(player.amount) } : main;
+    const trees = dist.heroTrees.map((t) => ({ ...t, share: sampledShare(dist.trees, t.id) }));
+
+    analysisEl.innerHTML = renderAnalysis(player, curve, shown, trees, share ? (tree?.id ?? null) : null);
+    const logs = dist.points.flatMap(([rank, amount], i) => {
+      const log = dist.logs[i];
+      return log && (!share || dist.trees[i] === tree?.id) ? [{ rank, amount, log }] : [];
+    });
+    mountChart($("chart"), tooltip, curve, player, shown.parse, logs);
   } catch (e) {
     if (gen === generation) {
       setStatus(errorMessage(e), true);
@@ -177,7 +202,7 @@ function submit() {
     setStatus("That doesn't look like a Warcraft Logs report link or code.", true);
     return;
   }
-  show({ code: input.code, fight: input.fight, player: null });
+  show({ code: input.code, fight: input.fight, player: null, tree: null });
 }
 
 form.addEventListener("submit", (e) => {
@@ -188,19 +213,25 @@ form.addEventListener("submit", (e) => {
 // load right away when a link is pasted
 urlInput.addEventListener("paste", () => setTimeout(submit));
 
-demoButton.addEventListener("click", () => {
+// optional: the page may not have a demo button
+document.getElementById("demo")?.addEventListener("click", () => {
   urlInput.value = DEMO_CODE;
   submit();
 });
 
 fightsEl.addEventListener("click", (e) => {
   const btn = (e.target as HTMLElement).closest<HTMLElement>("[data-fight]");
-  if (btn && selection) show({ ...selection, fight: Number(btn.dataset.fight), player: null });
+  if (btn && selection) show({ ...selection, fight: Number(btn.dataset.fight), player: null, tree: null });
 });
 
 playersEl.addEventListener("click", (e) => {
   const btn = (e.target as HTMLElement).closest<HTMLElement>("[data-player]");
-  if (btn && selection) show({ ...selection, player: btn.dataset.player ?? null });
+  if (btn && selection) show({ ...selection, player: btn.dataset.player ?? null, tree: null });
+});
+
+analysisEl.addEventListener("click", (e) => {
+  const btn = (e.target as HTMLElement).closest<HTMLElement>("[data-tree]");
+  if (btn && selection) show({ ...selection, tree: Number(btn.dataset.tree) || null });
 });
 
 window.addEventListener("popstate", () => {
@@ -227,6 +258,7 @@ document.addEventListener(
 
 // ---------- start ----------
 
+captureAdminToken();
 const initial = readUrl();
 if (initial) {
   urlInput.value =
