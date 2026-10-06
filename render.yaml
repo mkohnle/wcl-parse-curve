@@ -1,9 +1,10 @@
 # Render Blueprint: https://render.com/docs/blueprint-spec
 services:
   - type: web
-    name: wcl-parse-curve
+    name: logscope
     runtime: node
     plan: free
+    region: frankfurt
     # `corepack enable` fails on Render (/usr/bin is read-only); `corepack pnpm` runs the
     # pnpm version pinned in package.json without installing anything globally.
     buildCommand: COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm install --frozen-lockfile && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm build
