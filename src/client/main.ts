@@ -129,11 +129,6 @@ async function show(next: Selection, push = true) {
     const main: LabeledParse = byKeyLevel
       ? { label: `+${meta?.keystoneLevel} parse`, parse: player.bracketParse as number }
       : { label: "Parse", parse: player.parse };
-    const other: LabeledParse | null = byKeyLevel
-      ? { label: "Overall", parse: player.parse }
-      : player.bracketParse != null
-        ? { label: "Item level", parse: player.bracketParse }
-        : null;
 
     const dist = await getDistribution({
       enc: meta?.encounterID || fight.enc,
@@ -151,15 +146,7 @@ async function show(next: Selection, push = true) {
       complete: dist.complete,
       anchor: { amount: player.amount, parse: main.parse },
     });
-    analysisEl.innerHTML = renderAnalysis(
-      player,
-      curve,
-      main,
-      other,
-      byKeyLevel
-        ? "The overall Mythic+ parse also weighs the key level, so the curve compares against runs of the same key level."
-        : "",
-    );
+    analysisEl.innerHTML = renderAnalysis(player, curve, main);
     mountChart($("chart"), tooltip, curve, player, main.parse);
   } catch (e) {
     if (gen === generation) {

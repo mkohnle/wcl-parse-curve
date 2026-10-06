@@ -106,14 +106,8 @@ export interface LabeledParse {
   parse: number;
 }
 
-/** main: the parse the curve is built for (shown big). other: shown small. */
-export function renderAnalysis(
-  p: Player,
-  curve: Curve,
-  main: LabeledParse,
-  other: LabeledParse | null,
-  extraNote = "",
-): string {
+/** main: the parse the curve is built for. */
+export function renderAnalysis(p: Player, curve: Curve, main: LabeledParse): string {
   const cc = classColor(p.cls);
   const metric = p.metric.toUpperCase();
   // the log's parse; the curve is pinned to it
@@ -157,13 +151,7 @@ export function renderAnalysis(
           <div class="font-display text-3xl font-bold" style="color:${cc}">${esc(p.name)}</div>
           <div class="text-zinc-400">${esc(spaced(p.spec))} ${esc(spaced(p.cls))} · <span class="text-zinc-200">${fmt(p.amount)}</span> ${metric}</div>
         </div>
-        <div class="ml-auto flex items-end gap-8 text-right">
-          ${
-            other
-              ? `<div><div class="label">${esc(other.label)}</div>
-                   <div class="text-2xl font-bold tabular-nums" style="color:${tierColor(other.parse)}">${Math.floor(other.parse)}</div></div>`
-              : ""
-          }
+        <div class="ml-auto text-right">
           <div><div class="label">${esc(main.label)}</div>
             <div class="text-5xl font-bold tabular-nums leading-none" style="color:${color};text-shadow:0 0 24px ${color}55">${current}</div></div>
         </div>
@@ -189,6 +177,6 @@ export function renderAnalysis(
           </div>
         </aside>
       </div>
-      <p class="border-t border-line px-5 py-3 text-xs text-zinc-500">${note} ${extraNote}</p>
+      <p class="border-t border-line px-5 py-3 text-xs text-zinc-500">${note}</p>
     </section>`;
 }
