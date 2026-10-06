@@ -199,8 +199,13 @@ export function renderAnalysis(
            style="background:linear-gradient(90deg, ${cc}26, transparent 65%)">
         ${img(specIcon(p.cls, p.spec), "size-16 border-2", undefined, `border-color:${cc}`)}
         <div class="min-w-0">
-          <div class="font-display text-3xl font-bold" style="color:${cc}">${esc(p.name)}</div>
-          <div class="text-zinc-400">${esc(spaced(p.spec))} ${esc(spaced(p.cls))} · <span class="text-zinc-200">${fmt(p.amount)}</span> ${metric}</div>
+          ${
+            p.realm && (p.region === "EU" || p.region === "US")
+              ? `<button type="button" data-character title="Open character page"
+                   class="font-display text-3xl font-bold hover:brightness-125" style="color:${cc}">${esc(p.name)}</button>`
+              : `<div class="font-display text-3xl font-bold" style="color:${cc}">${esc(p.name)}</div>`
+          }
+          <div class="text-zinc-400">${esc(spaced(p.spec))} ${esc(spaced(p.cls))}${p.realm ? ` · ${esc(p.realm)}` : ""} · <span class="text-zinc-200">${fmt(p.amount)}</span> ${metric}</div>
         </div>
         <div class="ml-auto text-right">
           <div><div class="label">${esc(main.label)}</div>
@@ -263,7 +268,7 @@ export function renderCharacter(c: CharacterResponse): string {
     });
     return `
       <section>
-        <h3 class="label mb-2">${esc(z.name)}${z.mythicPlus ? " · parses at the highest key" : ` · ${difficultyName(z.difficulty)}`}</h3>
+        <h3 class="label mb-2">${esc(z.name)}${z.mythicPlus ? "" : ` · ${difficultyName(z.difficulty)}`}</h3>
         <div class="panel divide-y divide-line">
           <div class="grid grid-cols-[2rem_1fr_3rem_3rem_3rem_4.5rem] gap-3 px-3 py-1.5 text-right">
             <span></span><span class="label text-left">${z.mythicPlus ? "Dungeon" : "Boss"}</span>
@@ -286,7 +291,7 @@ export function renderCharacter(c: CharacterResponse): string {
         <a href="${wclUrl}" target="_blank" rel="noreferrer" class="label hidden shrink-0 hover:text-gold sm:block">Open on Warcraft Logs ↗</a>
       </div>
       ${zones.join("")}
-      <p class="text-xs text-zinc-500">Best and median parse per boss. Click a boss to see the logs, then a log to open it on the curve.</p>
+      <p class="text-xs text-zinc-500">Best and median parse per boss. Click a boss or dungeon to see the logs.</p>
     </div>`;
 }
 
@@ -309,4 +314,52 @@ export function renderCharacterLogs(logs: CharacterLog[], cls: string, mythicPlu
       </button>`,
   );
   return `<div class="divide-y divide-line/50">${rows.join("")}</div>`;
+}
+
+// ---------- landing ----------
+
+/** Key visual: a bell curve of bars in the parse tier colors, like the analysis chart. */
+export function renderHeroCurve(): string {
+  const W = 640;
+  const H = 150;
+  const BARS = 46;
+  const zMin = -3;
+  const zMax = 3.4;
+  const pdf = (z: number) => Math.exp(-0.5 * z * z);
+  // tier borders as normal quantiles: 25, 50, 75, 95, 99, ~100
+  const tier = (z: number) =>
+    tierColor(
+      z < -0.674 ? 0 : z < 0 ? 25 : z < 0.674 ? 50 : z < 1.645 ? 75 : z < 2.326 ? 95 : z < 3.09 ? 99 : 100,
+    );
+  const bw = W / BARS;
+  const bars = Array.from({ length: BARS }, (_, i) => {
+    const z = zMin + ((i + 0.5) / BARS) * (zMax - zMin);
+    const h = Math.max(2, pdf(z) * (H - 8));
+    return `<rect x="${(i * bw + 1).toFixed(1)}" y="${(H - h).toFixed(1)}" width="${(bw - 2).toFixed(1)}" height="${h.toFixed(1)}" rx="1.5" fill="${tier(z)}" opacity=".85"/>`;
+  }).join("");
+  return `<svg viewBox="0 0 ${W} ${H + 1}" class="block h-auto w-full" aria-hidden="true">
+    ${bars}<line x1="0" x2="${W}" y1="${H + 0.5}" y2="${H + 0.5}" stroke="#2a2d3a"/>
+  </svg>`;
+}
+
+/** A report or character the visitor opened before (kept in the browser). */
+export type RecentItem =
+  | { kind: "report"; code: string; title: string; zoneId: number | null }
+  | { kind: "char"; name: string; realm: string; realmName: string; region: string; cls: string };
+
+export function renderRecent(items: RecentItem[]): string {
+  if (!items.length) return "";
+  const chips = items.map((it, i) =>
+    it.kind === "report"
+      ? `<button type="button" data-recent="${i}" class="flex max-w-56 items-center gap-2 rounded-sm border border-line bg-panel px-2 py-1 text-sm text-zinc-300 hover:border-zinc-500">
+          ${it.zoneId ? img(zoneIcon(it.zoneId), "size-5") : ""}<span class="truncate">${esc(it.title)}</span>
+        </button>`
+      : `<button type="button" data-recent="${i}" class="flex max-w-56 items-center gap-2 rounded-sm border border-line bg-panel px-2 py-1 text-sm hover:border-zinc-500">
+          ${img(classIcon(it.cls), "size-5")}<span class="truncate" style="color:${classColor(it.cls)}">${esc(it.name)}</span>
+          <span class="shrink-0 text-xs text-zinc-500">${esc(it.realmName)} ${esc(it.region)}</span>
+        </button>`,
+  );
+  return `
+    <div class="label mb-2">Recently viewed</div>
+    <div class="flex flex-wrap justify-center gap-2">${chips.join("")}</div>`;
 }

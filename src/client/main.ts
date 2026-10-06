@@ -24,12 +24,15 @@ import { sampledShare, treeCurve, treeShare } from "./hero-tree.ts";
 import { DEMO_CODE, matchRealms, parseCharacterInput, parseReportInput } from "./report-input.ts";
 import {
   type LabeledParse,
+  type RecentItem,
   renderAnalysis,
   renderAnalysisLoading,
   renderCharacter,
   renderCharacterLogs,
   renderFights,
+  renderHeroCurve,
   renderPlayers,
+  renderRecent,
   renderReportHeader,
 } from "./views.ts";
 
@@ -43,6 +46,8 @@ const statusEl = $("status");
 const reportEl = $("report");
 const tooltip = $("tooltip");
 const budgetEl = $("budget");
+const heroEl = $("hero");
+const recentEl = $("recent");
 
 reportEl.innerHTML = `<div id="character"></div><div id="report-head"></div><div id="fights"></div><div id="players"></div><div id="analysis"></div>`;
 const charEl = $("character");
@@ -112,12 +117,54 @@ function readUrl(): Selection | CharacterRef | null {
 
 const isCharacterRef = (s: Selection | CharacterRef): s is CharacterRef => "realm" in s;
 
+// ---------- landing ----------
+
+const RECENT_KEY = "recent";
+const MAX_RECENT = 6;
+
+function loadRecent(): RecentItem[] {
+  try {
+    return JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]");
+  } catch {
+    return [];
+  }
+}
+
+function addRecent(item: RecentItem) {
+  const id = (it: RecentItem) =>
+    it.kind === "report" ? it.code : `${it.name}-${it.realm}-${it.region}`.toLowerCase();
+  const items = [item, ...loadRecent().filter((it) => id(it) !== id(item))].slice(0, MAX_RECENT);
+  try {
+    localStorage.setItem(RECENT_KEY, JSON.stringify(items));
+  } catch {}
+}
+
+/** The front page: key visual and recently viewed; hidden once something is open. */
+function showLanding(on: boolean) {
+  heroEl.innerHTML = on ? renderHeroCurve() : "";
+  recentEl.innerHTML = on ? renderRecent(loadRecent()) : "";
+}
+
+recentEl.addEventListener("click", (e) => {
+  const btn = (e.target as HTMLElement).closest<HTMLElement>("[data-recent]");
+  const it = btn && loadRecent()[Number(btn.dataset.recent)];
+  if (!it) return;
+  if (it.kind === "report") {
+    urlInput.value = `https://www.warcraftlogs.com/reports/${it.code}`;
+    show({ code: it.code, fight: null, player: null, tree: null });
+  } else {
+    urlInput.value = `${it.name}-${it.realmName}`;
+    showCharacter({ name: it.name, realm: it.realm, region: it.region as Region });
+  }
+});
+
 /** Load and render `next`, reusing what's on screen. */
 async function show(next: Selection, push = true) {
   const gen = ++generation;
   const prev = selection;
   selection = next;
   character = null;
+  showLanding(false);
   charEl.innerHTML = "";
   writeUrl(next, push);
   setStatus("");
@@ -137,6 +184,8 @@ async function show(next: Selection, push = true) {
       if (!r.fights.length) throw new Error("No boss fights found in this report");
       report = r;
       setStatus("");
+      if (next.code !== DEMO_CODE)
+        addRecent({ kind: "report", code: next.code, title: r.title, zoneId: r.zone?.id ?? null });
       headEl.innerHTML = renderReportHeader(next.code, r);
       // a single fight needs no choice
       if (!next.fight && r.fights.length === 1) {
@@ -229,6 +278,7 @@ async function showCharacter(ref: CharacterRef, push = true) {
   selection = null;
   report = null;
   fight = null;
+  showLanding(false);
   headEl.innerHTML = fightsEl.innerHTML = playersEl.innerHTML = analysisEl.innerHTML = charEl.innerHTML = "";
   setUrl(new URLSearchParams({ char: `${ref.name}-${ref.realm}-${ref.region}` }), push);
   setStatus("Loading character…");
@@ -238,6 +288,14 @@ async function showCharacter(ref: CharacterRef, push = true) {
     if (gen !== generation) return;
     character = c;
     setStatus("");
+    addRecent({
+      kind: "char",
+      name: c.name,
+      realm: c.realm.slug,
+      realmName: c.realm.name,
+      region: c.region,
+      cls: c.cls,
+    });
     charEl.innerHTML = renderCharacter(c);
   } catch (e) {
     if (gen === generation) setStatus(errorMessage(e), true);
@@ -395,9 +453,23 @@ playersEl.addEventListener("click", (e) => {
   if (btn && selection) show({ ...selection, player: btn.dataset.player ?? null, tree: null });
 });
 
-analysisEl.addEventListener("click", (e) => {
-  const btn = (e.target as HTMLElement).closest<HTMLElement>("[data-tree]");
+analysisEl.addEventListener("click", async (e) => {
+  const target = e.target as HTMLElement;
+  const btn = target.closest<HTMLElement>("[data-tree]");
   if (btn && selection) show({ ...selection, tree: Number(btn.dataset.tree) || null });
+
+  // player name: open their character page
+  const player = fight?.players.find((p) => p.name === selection?.player);
+  if (!target.closest("[data-character]") || !player?.realm) return;
+  const playerRegion = player.region as Region;
+  try {
+    const realm = matchRealms(await getRealms(playerRegion), player.realm)[0];
+    if (!realm) throw new Error(`Unknown realm "${player.realm}"`);
+    urlInput.value = `${player.name}-${realm.name}`;
+    showCharacter({ name: player.name, realm: realm.slug, region: playerRegion });
+  } catch (err) {
+    setStatus(errorMessage(err), true);
+  }
 });
 
 charEl.addEventListener("click", async (e) => {
@@ -459,7 +531,18 @@ function showFromUrl(push: boolean) {
   return true;
 }
 
-window.addEventListener("popstate", () => showFromUrl(false));
+window.addEventListener("popstate", () => {
+  if (showFromUrl(false)) return;
+  generation++;
+  selection = null;
+  report = null;
+  fight = null;
+  character = null;
+  headEl.innerHTML = fightsEl.innerHTML = playersEl.innerHTML = analysisEl.innerHTML = charEl.innerHTML = "";
+  urlInput.value = "";
+  setStatus("");
+  showLanding(true);
+});
 
 // missing boss icon: use the fallback, else hide
 document.addEventListener(
@@ -481,4 +564,7 @@ document.addEventListener(
 // ---------- start ----------
 
 captureAdminToken();
-if (!showFromUrl(false)) showBudget();
+if (!showFromUrl(false)) {
+  showLanding(true);
+  showBudget();
+}
