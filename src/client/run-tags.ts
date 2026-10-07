@@ -17,7 +17,7 @@ const DEATH_PENALTY = 5;
 /** Deaths that make a run messy enough for Unkillable. */
 const MANY_DEATHS = 3;
 /** Off-healer: at least this share of the healer's healing. */
-const OFF_HEAL_SHARE = 0.1;
+const OFF_HEAL_SHARE = 0.5;
 
 const RULES: {
   tag: Tag;
@@ -30,8 +30,8 @@ const RULES: {
       classes: "bg-gold/15 text-gold",
     },
     pick: (ps, parse) => {
-      const score = (p: Ran) => parse(p) - DEATH_PENALTY * p.run.deaths;
-      return [ps.reduce((a, b) => (score(b) > score(a) ? b : a))];
+      const scores = ps.map((p) => parse(p) - DEATH_PENALTY * p.run.deaths);
+      return only(ps, scores, Math.max(...scores));
     },
   },
   {
@@ -56,8 +56,7 @@ const RULES: {
       const levels = ps.map((p) => p.run.itemLevel);
       if (levels.some((l) => l === null)) return [];
       const low = bottom(ps, (p) => p.run.itemLevel as number);
-      if (low.length !== 1 || low[0].run.itemLevel === Math.max(...(levels as number[]))) return [];
-      return parse(low[0]) > median(ps.map(parse)) ? low : [];
+      return low.length && parse(low[0]) > median(ps.map(parse)) ? low : [];
     },
   },
   {
@@ -105,14 +104,14 @@ const RULES: {
   {
     tag: {
       label: "Floor inspector",
-      title: "Most deaths",
+      title: "Most deaths (2+)",
       classes: "bg-red-500/15 text-red-300",
     },
-    pick: (ps) => top(ps, (p) => p.run.deaths),
+    pick: (ps) => top(ps, (p) => p.run.deaths).filter((p) => p.run.deaths >= 2),
   },
   {
     tag: {
-      label: "Health pots",
+      label: "Thirsty",
       title: "Used the most healthstones and potions (2+)",
       classes: "bg-teal-400/15 text-teal-300",
     },
@@ -120,17 +119,23 @@ const RULES: {
   },
 ];
 
-/** Everyone tied for the highest positive value. */
-function top(ps: Ran[], value: (p: Ran) => number): Ran[] {
-  const max = Math.max(0, ...ps.map(value));
-  return max > 0 ? ps.filter((p) => value(p) === max) : [];
+/** The one player with `target`; nobody on a tie. */
+function only(ps: Ran[], values: number[], target: number): Ran[] {
+  const hits = ps.filter((_, i) => values[i] === target);
+  return hits.length === 1 ? hits : [];
 }
 
-/** Everyone tied for the lowest value. */
+/** The one player with the highest positive value; nobody on a tie. */
+function top(ps: Ran[], value: (p: Ran) => number): Ran[] {
+  const values = ps.map(value);
+  const max = Math.max(0, ...values);
+  return max > 0 ? only(ps, values, max) : [];
+}
+
+/** The one player with the lowest value; nobody on a tie. */
 function bottom(ps: Ran[], value: (p: Ran) => number): Ran[] {
-  if (!ps.length) return [];
-  const min = Math.min(...ps.map(value));
-  return ps.filter((p) => value(p) === min);
+  const values = ps.map(value);
+  return ps.length ? only(ps, values, Math.min(...values)) : [];
 }
 
 function median(xs: number[]): number {
