@@ -14,6 +14,8 @@ export interface RankingEntry {
 interface RawRanking {
   amount: number;
   name: string;
+  /** epoch ms */
+  startTime: number;
   server?: { name: string; region: string };
   report?: { code: string; fightID: number };
   talents?: { talentID: number }[];
@@ -57,6 +59,7 @@ export async function fetchRankingPage(q: DistributionQuery, page: number): Prom
           server: r.server ? `${r.server.name} (${r.server.region})` : "",
           code: r.report.code,
           fight: r.report.fightID,
+          date: r.startTime,
         }
       : null,
   }));

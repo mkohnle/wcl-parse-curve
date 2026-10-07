@@ -28,6 +28,7 @@ export const isDemoEncounter = (encounterId: number) =>
 
 export const demoReport: ReportResponse = {
   title: "Demo report",
+  startTime: Date.now(),
   zone: { id: 55, name: "Synthetic data, no API calls" },
   fights: [
     {
@@ -37,6 +38,7 @@ export const demoReport: ReportResponse = {
       difficulty: 4,
       kill: true,
       keystoneLevel: null,
+      keystoneBonus: null,
       duration: 312_000,
     },
     {
@@ -46,6 +48,7 @@ export const demoReport: ReportResponse = {
       difficulty: 10,
       kill: true,
       keystoneLevel: KEY_LEVEL,
+      keystoneBonus: 2,
       duration: 1_745_000,
     },
   ],

@@ -1,5 +1,5 @@
 import type { CharacterLog, CharacterResponse, CharacterSection, CharacterZone } from "../../shared/api.ts";
-import { compact, esc, spaced } from "../format.ts";
+import { compact, date, esc, spaced } from "../format.ts";
 import { bossIcon, classColor, classIcon, difficultyName, specIcon, tierColor } from "../wow.ts";
 import { img, skeleton } from "./common.ts";
 
@@ -106,7 +106,7 @@ export function renderCharacterLogs(logs: CharacterLog[], className: string, myt
         <span></span>
         <span class="flex min-w-0 items-center gap-2 text-zinc-400">
           ${img(specIcon(className, l.spec), "size-4")}
-          ${new Date(l.date).toLocaleDateString()}
+          ${date(l.date)}
           <span class="text-zinc-500">${mythicPlus ? `+${l.bracket}` : `${l.bracket} ilvl`}</span>
         </span>
         <span class="text-right font-semibold tabular-nums" style="color:${tierColor(l.parse)}">${Math.floor(l.parse)}</span>

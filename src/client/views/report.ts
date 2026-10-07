@@ -1,5 +1,5 @@
 import type { Fight, Player, ReportResponse, Role } from "../../shared/api.ts";
-import { compact, duration, esc, spaced } from "../format.ts";
+import { compact, date, duration, esc, spaced } from "../format.ts";
 import { DEMO_CODE } from "../search-input.ts";
 import { bossIcon, classColor, difficultyName, specIcon, tierColor, zoneIcon } from "../wow.ts";
 import { img, skeleton } from "./common.ts";
@@ -11,7 +11,7 @@ export function renderReportHeader(code: string, report: ReportResponse): string
       ${zone ? img(zoneIcon(zone.id), "size-14") : ""}
       <div class="min-w-0 flex-1">
         <h2 class="truncate text-2xl font-bold text-zinc-100">${esc(report.title)}</h2>
-        ${zone && zone.name !== report.title ? `<div class="text-zinc-400">${esc(zone.name)}</div>` : ""}
+        <div class="text-zinc-400">${zone && zone.name !== report.title ? `${esc(zone.name)} · ` : ""}${date(report.startTime)}</div>
       </div>
       ${
         code === DEMO_CODE
@@ -32,6 +32,13 @@ export function renderFights(fights: Fight[], zoneId: number | undefined, select
   const cards = fights.map((f) => {
     const on = f.id === selected;
     const mode = f.keystoneLevel ? `+${f.keystoneLevel}` : difficultyName(f.difficulty);
+    const [result, color] = !f.kill
+      ? [f.keystoneLevel ? "Incomplete" : "Wipe", "text-red-400"]
+      : !f.keystoneLevel
+        ? ["Kill", "text-emerald-400"]
+        : f.keystoneBonus
+          ? [`Timed +${f.keystoneBonus}`, "text-emerald-400"]
+          : ["Depleted", "text-amber-400"];
     return `
       <button type="button" data-fight="${f.id}"
         class="flex items-center gap-3 rounded-md border p-2 pr-3 text-left transition ${
@@ -43,7 +50,7 @@ export function renderFights(fights: Fight[], zoneId: number | undefined, select
         <div class="min-w-0">
           <div class="truncate font-semibold text-zinc-100">${esc(f.name)}</div>
           <div class="text-xs text-zinc-400">
-            <span class="${f.kill ? "text-emerald-400" : "text-red-400"}">${f.kill ? "Kill" : "Wipe"}</span>
+            <span class="${color}">${result}</span>
             · ${mode} · ${duration(f.duration)}
           </div>
         </div>
@@ -106,7 +113,7 @@ export function renderPlayers(
     "2 · Pick a player",
     `<div class="panel grid gap-5 p-4 md:grid-cols-3">${groups.join("")}</div>${
       unranked
-        ? `<p class="mt-2 text-xs text-zinc-500">${unranked === 1 ? "1 player isn't" : `${unranked} players aren't`} ranked by Warcraft Logs in this fight.</p>`
+        ? `<p class="mt-2 text-xs text-zinc-500">${unranked === 1 ? "1 player isn't" : `${unranked} players aren't`} ranked by Warcraftlogs.</p>`
         : ""
     }`,
   );

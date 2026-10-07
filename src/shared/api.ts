@@ -25,12 +25,16 @@ export interface Fight {
   difficulty: number;
   kill: boolean;
   keystoneLevel: number | null;
+  /** M+: key upgrades when timed (1-3), null when depleted */
+  keystoneBonus: number | null;
   /** ms */
   duration: number;
 }
 
 export interface ReportResponse {
   title: string;
+  /** epoch ms */
+  startTime: number;
   zone: { id: number; name: string } | null;
   fights: Fight[];
 }
@@ -92,6 +96,8 @@ export interface LogRef {
   server: string;
   code: string;
   fight: number;
+  /** epoch ms */
+  date: number;
 }
 
 export interface HeroTree {

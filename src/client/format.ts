@@ -14,6 +14,10 @@ export const esc = (s: unknown) => String(s).replace(/[&<>"]/g, (c) => ESCAPES[c
 /** "DeathKnight" -> "Death Knight" */
 export const spaced = (s: string) => s.replace(/([a-z])([A-Z])/g, "$1 $2");
 
+/** In the visitor's format, e.g. "06.10.2026" */
+export const date = (ms: number) =>
+  new Date(ms).toLocaleDateString(undefined, { day: "2-digit", month: "2-digit", year: "numeric" });
+
 /** 1870070 -> "31:10" */
 export const duration = (ms: number) => {
   const s = Math.round(ms / 1000);

@@ -13,15 +13,22 @@ interface RawFight extends Omit<Fight, "duration" | "encounterId"> {
 export async function fetchReport(code: string): Promise<{ report: ReportResponse; endTime: number }> {
   const data = await gql<{
     reportData: {
-      report: { title: string; endTime: number; zone: ReportResponse["zone"]; fights: RawFight[] } | null;
+      report: {
+        title: string;
+        startTime: number;
+        endTime: number;
+        zone: ReportResponse["zone"];
+        fights: RawFight[];
+      } | null;
     };
   }>(
     `query Report($code: String!) {
       reportData { report(code: $code) {
         title
+        startTime
         endTime
         zone { id name }
-        fights { id name encounterID difficulty kill keystoneLevel startTime endTime }
+        fights { id name encounterID difficulty kill keystoneLevel keystoneBonus startTime endTime }
       } }
     }`,
     { code },
@@ -32,6 +39,7 @@ export async function fetchReport(code: string): Promise<{ report: ReportRespons
     endTime: report.endTime,
     report: {
       title: report.title,
+      startTime: report.startTime,
       zone: report.zone,
       fights: report.fights
         .filter((f) => f.encounterID > 0)
@@ -39,6 +47,7 @@ export async function fetchReport(code: string): Promise<{ report: ReportRespons
           ...f,
           encounterId: encounterID,
           kill: Boolean(f.kill),
+          keystoneBonus: f.keystoneBonus || null,
           duration: endTime - startTime,
         })),
     },

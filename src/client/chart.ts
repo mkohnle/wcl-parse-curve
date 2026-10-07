@@ -1,6 +1,6 @@
 import type { LogRef, Player } from "../shared/api.ts";
 import { type Curve, meanAndStdDev, normalPdf } from "./curve.ts";
-import { compact, esc, fmt } from "./format.ts";
+import { compact, date, esc, fmt } from "./format.ts";
 import { TIERS, tierColor } from "./wow.ts";
 
 /** A real leaderboard entry with a link to its log. */
@@ -187,7 +187,7 @@ function exampleHtml(ex: RealLog, bin: Bin): string {
     <div class="mt-1.5 border-t border-line pt-1.5 text-xs">
       <div class="text-zinc-500">${inBin ? "Example log" : "Closest real log"}</div>
       <div><span class="text-zinc-200">${esc(ex.log.name)}</span> <span class="text-zinc-500">${esc(ex.log.server)}</span></div>
-      <div class="text-zinc-400">${compact(ex.amount)} · rank ${fmt(ex.rank)}</div>
+      <div class="text-zinc-400">${compact(ex.amount)} · rank ${fmt(ex.rank)} · ${date(ex.log.date)}</div>
       <div class="mt-0.5 text-gold">Click to open on Warcraft Logs ↗</div>
     </div>`;
 }
