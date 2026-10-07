@@ -3,7 +3,7 @@ import { cached, DAY, HOUR, MINUTE } from "../cache.ts";
 import { demoFight, demoReport, isDemoCode } from "../demo.ts";
 import { HttpError, int, str } from "../http.ts";
 import { ensureBudget } from "../wcl/client.ts";
-import { FIGHT_COST, fetchFight, fetchReport } from "../wcl/reports.ts";
+import { fetchFight, fetchReport, fightCost } from "../wcl/reports.ts";
 
 export const reports = Router();
 
@@ -49,14 +49,15 @@ reports.get("/fight", async (req, res) => {
   if (!isReportCode(code) || !fightId) throw new HttpError(400, "Invalid parameters");
 
   // the client loads the report first, so this is usually cached
-  const { endTime } = await getReport(code);
+  const { report, endTime } = await getReport(code);
+  const mythicPlus = (report.fights.find((f) => f.id === fightId)?.keystoneLevel ?? 0) > 0;
   // not ranked yet: retry soon. Recent: rankings may still change.
   const fight = await cached(
     `fight|${code}|${fightId}`,
     (f) => (!f ? FRESH : isRecent(endTime) ? 10 * MINUTE : DAY),
     async () => {
-      await ensureBudget(FIGHT_COST);
-      return fetchFight(code, fightId);
+      await ensureBudget(fightCost(mythicPlus));
+      return fetchFight(code, fightId, mythicPlus);
     },
   );
   if (!fight)

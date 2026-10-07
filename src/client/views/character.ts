@@ -1,6 +1,7 @@
 import type { CharacterLog, CharacterResponse, CharacterSection, CharacterZone } from "../../shared/api.ts";
 import { compact, date, esc, spaced } from "../format.ts";
 import { bossIcon, classColor, classIcon, difficultyName, specIcon, tierColor } from "../wow.ts";
+import { renderZoneSummary } from "./character-summary.ts";
 import { img, skeleton } from "./common.ts";
 
 const COLUMNS = "grid-cols-[2rem_1fr_3rem_3rem_3rem_4.5rem]";
@@ -46,6 +47,7 @@ export function renderCharacterZone(c: CharacterResponse): string {
   return `
     <section>
       <h3 class="label mb-2">${esc(z.name)}${z.mythicPlus ? "" : ` · ${difficultyName(z.difficulty)}`}</h3>
+      ${renderZoneSummary(z)}
       <div class="panel divide-y divide-line">
         ${zoneHeader(z)}
         ${z.bosses.map((b) => bossRow(c, z, b)).join("")}

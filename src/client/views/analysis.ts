@@ -36,7 +36,7 @@ function header(p: Player, main: LabeledParse, rank: Rank | null | undefined): s
       ${img(specIcon(p.className, p.spec), "size-16 border-2", undefined, `border-color:${cc}`)}
       <div class="min-w-0">
         ${name}
-        <div class="text-zinc-400">${esc(spaced(p.spec))} ${esc(spaced(p.className))}${p.realm ? ` · ${esc(p.realm)}` : ""} · <span class="text-zinc-200">${fmt(p.amount)}</span> ${p.metric.toUpperCase()}</div>
+        <div class="text-zinc-400">${esc(spaced(p.spec))} ${esc(spaced(p.className))}${p.realm ? ` · ${esc(p.realm)}` : ""} · <span class="text-zinc-200">${fmt(p.amount)}</span> ${p.metric.toUpperCase()}${p.run?.itemLevel ? ` · ilvl ${p.run.itemLevel}` : ""}</div>
       </div>
       <div class="ml-auto text-right">
         <div class="label">${esc(main.label)}</div>

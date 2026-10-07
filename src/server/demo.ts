@@ -8,6 +8,7 @@ import type {
   Player,
   ReportResponse,
   Role,
+  RunStats,
 } from "../shared/api.ts";
 import { MAX_PAGE, PAGE_SIZE } from "../shared/leaderboard.ts";
 import { probit } from "../shared/math.ts";
@@ -180,6 +181,21 @@ function demoTrees(q: DistributionQuery, b: Board): (rank: number) => number | n
 const clampParse = (p: number) => Math.max(0, Math.min(100, Math.round(p)));
 const parseAt = (b: Board, rank: number) => Math.floor(100 * (1 - rank / b.size));
 
+/** Made-up run stats, varied enough to show the tags. */
+function demoRun(role: Role, r: () => number): RunStats {
+  const deaths = Math.floor(r() * 3);
+  const damage = (role === "dps" ? 400 : role === "tank" ? 220 : 70) * (0.8 + r() * 0.4) * 1e6;
+  return {
+    deaths,
+    interrupts: Math.floor(r() * 12),
+    damage,
+    damageShare: damage / 1.6e9,
+    healing: (role === "healer" ? 300 : 15 + r() * 30) * 1e6,
+    healthItems: Math.floor(r() * 4),
+    itemLevel: 320 + Math.floor(r() * 10),
+  };
+}
+
 export function demoFight(fightId: number): FightResponse | null {
   const fight = demoReport.fights.find((f) => f.id === fightId);
   if (!fight) return null;
@@ -210,6 +226,7 @@ export function demoFight(fightId: number): FightResponse | null {
         realm: null,
         region: null,
         bracket: null,
+        run: null,
       };
     }
 
@@ -232,6 +249,7 @@ export function demoFight(fightId: number): FightResponse | null {
       realm: null,
       region: null,
       bracket: KEY_BRACKET,
+      run: demoRun(role, r),
     };
   });
 

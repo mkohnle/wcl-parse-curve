@@ -1,4 +1,12 @@
-import type { Fight, FightResponse, Metric, Player, ReportResponse, Role } from "../../shared/api.ts";
+import type {
+  Fight,
+  FightResponse,
+  Metric,
+  Player,
+  ReportResponse,
+  Role,
+  RunStats,
+} from "../../shared/api.ts";
 import { compactName } from "../../shared/names.ts";
 import { HttpError } from "../http.ts";
 import { gql } from "./client.ts";
@@ -80,35 +88,68 @@ interface RawFightRanking {
 type RoleGroup = "tanks" | "healers" | "dps";
 const ROLE: Record<RoleGroup, Role> = { tanks: "tank", healers: "healer", dps: "dps" };
 
-/** 2 points per rankings field (measured). */
-export const FIGHT_COST = 4;
+/** 2 points per rankings field, M+ adds 1 each for the summary and interrupts tables (measured). */
+export const fightCost = (mythicPlus: boolean) => (mythicPlus ? 6 : 4);
 
-/** Players of a fight with their parses, or null if the fight isn't ranked (yet). */
-export async function fetchFight(code: string, fightId: number): Promise<FightResponse | null> {
+interface RawTable<T> {
+  data: T;
+}
+interface RawSummary {
+  /** one per death */
+  deathEvents: { name: string }[];
+  damageDone: { name: string; total: number }[];
+  healingDone: { name: string; total: number }[];
+  playerDetails: Partial<
+    Record<RoleGroup, { name: string; maxItemLevel?: number; potionUse?: number; healthstoneUse?: number }[]>
+  >;
+}
+/** Per kicked enemy spell, who kicked it how often. */
+type RawInterrupts = { entries?: { details?: { name: string; total: number }[] }[] };
+
+/** Players of a fight with their parses, or null if the fight isn't ranked (yet). M+ adds run stats. */
+export async function fetchFight(
+  code: string,
+  fightId: number,
+  mythicPlus: boolean,
+): Promise<FightResponse | null> {
   const data = await gql<{
     reportData: {
-      report: { dps: { data: RawFightRanking[] } | null; hps: { data: RawFightRanking[] } | null } | null;
+      report: {
+        dps: { data: RawFightRanking[] } | null;
+        hps: { data: RawFightRanking[] } | null;
+        summary?: RawTable<RawSummary>;
+        kicks?: RawTable<{ entries: RawInterrupts[] }>;
+      } | null;
     };
   }>(
     `query FightRankings($code: String!, $fight: Int!) {
       reportData { report(code: $code) {
         dps: rankings(fightIDs: [$fight], playerMetric: dps)
         hps: rankings(fightIDs: [$fight], playerMetric: hps)
+        ${
+          mythicPlus
+            ? `summary: table(fightIDs: [$fight], dataType: Summary)
+               kicks: table(fightIDs: [$fight], dataType: Interrupts)`
+            : ""
+        }
       } }
     }`,
     { code, fight: fightId },
-    FIGHT_COST,
+    fightCost(mythicPlus),
   );
   const report = data.reportData.report;
   if (!report) throw new HttpError(404, "Report not found");
   const dps = report.dps?.data[0];
   const hps = report.hps?.data[0];
   if (!dps) return null;
+
+  const stats =
+    report.summary && report.kicks ? runStats(report.summary.data, report.kicks.data.entries) : null;
   const players = [
     ...toPlayers(dps, "tanks", "dps"),
     ...toPlayers(hps, "healers", "hps"),
     ...toPlayers(dps, "dps", "dps"),
-  ];
+  ].map((p) => (stats ? { ...p, run: stats(p.name) } : p));
   // right after upload WCL can return rankings with every parse still 0
   if (players.every((p) => !p.parse && !p.bracketParse)) return null;
   return {
@@ -117,6 +158,35 @@ export async function fetchFight(code: string, fightId: number): Promise<FightRe
     partition: dps.partition,
     players,
     unranked: Math.max(0, (dps.size ?? 0) - players.length),
+  };
+}
+
+function runStats(summary: RawSummary, interrupts: RawInterrupts[]): (name: string) => RunStats {
+  const add = (m: Map<string, number>, name: string, n: number) => m.set(name, (m.get(name) ?? 0) + n);
+  const deaths = new Map<string, number>();
+  for (const d of summary.deathEvents) add(deaths, d.name, 1);
+  const kicks = new Map<string, number>();
+  for (const group of interrupts)
+    for (const spell of group.entries ?? []) for (const k of spell.details ?? []) add(kicks, k.name, k.total);
+  const damage = new Map(summary.damageDone.map((d) => [d.name, d.total]));
+  const healing = new Map(summary.healingDone.map((d) => [d.name, d.total]));
+  const groupDamage = [...damage.values()].reduce((a, b) => a + b, 0);
+  const details = new Map(
+    Object.values(summary.playerDetails)
+      .flat()
+      .map((p) => [p.name, p]),
+  );
+  return (name) => {
+    const d = details.get(name);
+    return {
+      deaths: deaths.get(name) ?? 0,
+      interrupts: kicks.get(name) ?? 0,
+      damage: damage.get(name) ?? 0,
+      damageShare: groupDamage ? (damage.get(name) ?? 0) / groupDamage : 0,
+      healing: healing.get(name) ?? 0,
+      healthItems: (d?.healthstoneUse ?? 0) + (d?.potionUse ?? 0),
+      itemLevel: d?.maxItemLevel ?? null,
+    };
   };
 }
 
@@ -136,5 +206,6 @@ function toPlayers(ranking: RawFightRanking | undefined, group: RoleGroup, metri
     bracket: c.bracket ?? null,
     realm: c.server?.name ?? null,
     region: c.server?.region ?? null,
+    run: null,
   }));
 }

@@ -63,6 +63,21 @@ export interface Player {
   /** null if unknown (e.g. demo) */
   realm: string | null;
   region: string | null;
+  /** M+ only, else null */
+  run: RunStats | null;
+}
+
+/** A player's stats over a whole M+ run. */
+export interface RunStats {
+  deaths: number;
+  interrupts: number;
+  damage: number;
+  /** share of the group's damage (0-1) */
+  damageShare: number;
+  healing: number;
+  /** healthstones and potions */
+  healthItems: number;
+  itemLevel: number | null;
 }
 
 export interface FightResponse {

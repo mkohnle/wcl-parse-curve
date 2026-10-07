@@ -1,5 +1,6 @@
 import type { Fight, Player, ReportResponse, Role } from "../../shared/api.ts";
 import { compact, date, duration, esc, spaced } from "../format.ts";
+import { runTags, type Tag } from "../run-tags.ts";
 import { DEMO_CODE } from "../search-input.ts";
 import { bossIcon, classColor, difficultyName, specIcon, tierColor, zoneIcon } from "../wow.ts";
 import { img, skeleton } from "./common.ts";
@@ -78,6 +79,16 @@ const ROLE_GROUPS: [Role, string][] = [
   ["dps", "Damage"],
 ];
 
+const badge = (t: Tag) =>
+  `<span title="${t.title}" class="shrink-0 rounded-sm px-1 text-[10px] font-bold uppercase ${t.classes}">${t.label}</span>`;
+
+/** M+: damage share and kicks. */
+function runStats(p: Player): string {
+  if (!p.run) return "";
+  const kicks = p.run.interrupts;
+  return `<div class="truncate text-xs text-zinc-500">${Math.round(p.run.damageShare * 100)}% dmg · ${kicks} ${kicks === 1 ? "kick" : "kicks"}</div>`;
+}
+
 /** byKeyLevel: show the key level parse (M+). */
 export function renderPlayers(
   players: Player[],
@@ -86,6 +97,10 @@ export function renderPlayers(
   byKeyLevel: boolean,
 ): string {
   const shown = (p: Player) => (byKeyLevel ? (p.bracketParse ?? p.parse) : p.parse);
+
+  // M+ only: deaths and kicks come with the fight
+  const tags = runTags(players, shown);
+
   const groups = ROLE_GROUPS.map(([role, title]) => {
     const list = players.filter((p) => p.role === role).sort((a, b) => b.amount - a.amount);
     if (!list.length) return "";
@@ -101,8 +116,12 @@ export function renderPlayers(
           }">
           ${img(specIcon(p.className, p.spec), "size-10", undefined, `border-color:${cc}`)}
           <div class="min-w-0 flex-1">
-            <div class="truncate font-semibold" style="color:${cc}">${esc(p.name)}</div>
+            <div class="flex flex-wrap items-center gap-1">
+              <span class="mr-0.5 truncate font-semibold" style="color:${cc}">${esc(p.name)}</span>
+              ${(tags.get(p.name) ?? []).map(badge).join("")}
+            </div>
             <div class="truncate text-xs text-zinc-500">${esc(spaced(p.spec))} · ${compact(p.amount)} ${p.metric.toUpperCase()}</div>
+            ${runStats(p)}
           </div>
           <div class="text-2xl font-bold tabular-nums" style="color:${tierColor(shown(p))}">${Math.floor(shown(p))}</div>
         </button>`;
