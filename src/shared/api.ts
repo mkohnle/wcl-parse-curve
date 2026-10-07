@@ -66,6 +66,8 @@ export interface FightResponse {
   difficulty: number;
   partition: number;
   players: Player[];
+  /** Players in the fight that Warcraft Logs didn't rank. */
+  unranked: number;
 }
 
 // ---------- leaderboards ----------

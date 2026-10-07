@@ -232,5 +232,5 @@ export function demoFight(fightId: number): FightResponse | null {
     };
   });
 
-  return { encounterId: fight.encounterId, difficulty: fight.difficulty, partition: 0, players };
+  return { encounterId: fight.encounterId, difficulty: fight.difficulty, partition: 0, players, unranked: 0 };
 }

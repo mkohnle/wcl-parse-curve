@@ -63,6 +63,8 @@ interface RawFightRanking {
   encounter: { id: number };
   difficulty: number;
   partition: number;
+  /** players in the fight */
+  size?: number;
   roles?: Partial<Record<RoleGroup, { characters: RawCharacterRanking[] }>>;
 }
 
@@ -93,15 +95,19 @@ export async function fetchFight(code: string, fightId: number): Promise<FightRe
   const dps = report.dps?.data[0];
   const hps = report.hps?.data[0];
   if (!dps) return null;
+  const players = [
+    ...toPlayers(dps, "tanks", "dps"),
+    ...toPlayers(hps, "healers", "hps"),
+    ...toPlayers(dps, "dps", "dps"),
+  ];
+  // right after upload WCL can return rankings with every parse still 0
+  if (players.every((p) => !p.parse && !p.bracketParse)) return null;
   return {
     encounterId: dps.encounter.id,
     difficulty: dps.difficulty,
     partition: dps.partition,
-    players: [
-      ...toPlayers(dps, "tanks", "dps"),
-      ...toPlayers(hps, "healers", "hps"),
-      ...toPlayers(dps, "dps", "dps"),
-    ],
+    players,
+    unranked: Math.max(0, (dps.size ?? 0) - players.length),
   };
 }
 

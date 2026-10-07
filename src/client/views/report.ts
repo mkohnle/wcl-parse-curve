@@ -72,7 +72,12 @@ const ROLE_GROUPS: [Role, string][] = [
 ];
 
 /** byKeyLevel: show the key level parse (M+). */
-export function renderPlayers(players: Player[], selected: string | null, byKeyLevel: boolean): string {
+export function renderPlayers(
+  players: Player[],
+  unranked: number,
+  selected: string | null,
+  byKeyLevel: boolean,
+): string {
   const shown = (p: Player) => (byKeyLevel ? (p.bracketParse ?? p.parse) : p.parse);
   const groups = ROLE_GROUPS.map(([role, title]) => {
     const list = players.filter((p) => p.role === role).sort((a, b) => b.amount - a.amount);
@@ -99,7 +104,11 @@ export function renderPlayers(players: Player[], selected: string | null, byKeyL
   });
   return section(
     "2 · Pick a player",
-    `<div class="panel grid gap-5 p-4 md:grid-cols-3">${groups.join("")}</div>`,
+    `<div class="panel grid gap-5 p-4 md:grid-cols-3">${groups.join("")}</div>${
+      unranked
+        ? `<p class="mt-2 text-xs text-zinc-500">${unranked === 1 ? "1 player isn't" : `${unranked} players aren't`} ranked by Warcraft Logs in this fight.</p>`
+        : ""
+    }`,
   );
 }
 

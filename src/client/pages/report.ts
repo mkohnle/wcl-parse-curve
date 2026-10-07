@@ -71,7 +71,7 @@ async function show(route: ReportRoute, prev: ReportRoute | null) {
     if (!f) return;
     const meta = r.fights.find((x) => x.id === route.fight);
     const isMythicPlus = (meta?.keystoneLevel ?? 0) > 0;
-    playersEl.innerHTML = renderPlayers(f.players, route.player, isMythicPlus);
+    playersEl.innerHTML = renderPlayers(f.players, f.unranked, route.player, isMythicPlus);
 
     const player = f.players.find((p) => p.name === route.player);
     if (!player) {
