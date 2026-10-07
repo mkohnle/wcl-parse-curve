@@ -93,6 +93,8 @@ export const getCharacterLogs = memo(
     metric: Metric,
     difficulty: number,
     keyLevel: boolean,
+    /** a run that must be included; refetched if the cached list predates it */
+    run?: { code: string; fight: number },
   ) =>
     getJson<CharacterLog[]>("/api/character/logs", {
       name,
@@ -102,5 +104,6 @@ export const getCharacterLogs = memo(
       metric,
       difficulty,
       keyLevel: keyLevel ? 1 : 0,
+      ...run,
     }),
 );

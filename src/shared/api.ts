@@ -168,6 +168,10 @@ export interface CharacterLog {
   parse: number;
   /** item level (raid) or key level (M+) */
   bracket: number;
+  /** Unrounded parse as of today, as fight rankings show it (`parse` is the one locked in back then). */
+  todayParse: number;
+  /** Population `todayParse` is measured against. */
+  todayTotal: number;
   /** without spaces */
   spec: string;
 }

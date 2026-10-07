@@ -17,8 +17,9 @@ export interface Curve {
 
 interface Anchor {
   amount: number;
-  /** Whole-number parse as shown by Warcraft Logs. */
   parse: number;
+  /** Whole-number parse as shown by Warcraft Logs, else unrounded. */
+  floored: boolean;
 }
 
 type Points = readonly (readonly [rank: number, amount: number])[];
@@ -43,8 +44,8 @@ export function buildCurve(
   return model(points, exact, null);
 }
 
-/** The log floors the parse, so aim for the middle. */
-const anchorTarget = (a: Anchor) => Math.min(99.99, a.parse + 0.5);
+/** A floored parse could be anywhere up to the next one: aim for the middle. */
+const anchorTarget = (a: Anchor) => Math.min(99.99, a.floored ? a.parse + 0.5 : a.parse);
 
 /** Add the anchor as a point if it falls between sampled pages. */
 function withAnchor(points: Points, n: number, anchor: Anchor | null): Points {

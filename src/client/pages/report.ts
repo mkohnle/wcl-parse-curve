@@ -1,12 +1,12 @@
-import type { Fight, FightResponse, Player, Region, ReportResponse } from "../../shared/api.ts";
-import { getDistribution, getFight, getRealms, getReport } from "../api.ts";
+import type { CharacterLog, Fight, FightResponse, Player, Region, ReportResponse } from "../../shared/api.ts";
+import { getCharacterLogs, getDistribution, getFight, getRealms, getReport } from "../api.ts";
 import { showBudget } from "../budget.ts";
 import { mountChart } from "../chart.ts";
 import { buildCurve } from "../curve.ts";
 import { dom, errorMessage, pageDom, setBusy, setStatus } from "../dom.ts";
 import { sampledShare, treeCurve, treeShare } from "../hero-tree.ts";
 import { prefs } from "../prefs.ts";
-import { estimatedRank, loggedRank, rankOnLeaderboard } from "../rank.ts";
+import { estimatedRank, loggedRank, rankFromParse, rankOnLeaderboard } from "../rank.ts";
 import { addRecent } from "../recent.ts";
 import { navigate, type ReportRoute, registerPage, replaceRoute } from "../router.ts";
 import { DEMO_CODE, matchRealms } from "../search-input.ts";
@@ -147,21 +147,27 @@ async function showAnalysis(
     analysisEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
-  const dist = await getDistribution({
-    encounterId: meta?.encounterId || f.encounterId,
-    difficulty: isMythicPlus ? 0 : meta?.difficulty || f.difficulty,
-    partition: f.partition || 0,
-    bracket: byKeyLevel ? (player.bracket as number) : 0,
-    metric: player.metric,
-    className: player.className,
-    spec: player.spec,
-  });
+  const encounterId = meta?.encounterId || f.encounterId;
+  const [dist, run] = await Promise.all([
+    getDistribution({
+      encounterId,
+      difficulty: isMythicPlus ? 0 : meta?.difficulty || f.difficulty,
+      partition: f.partition || 0,
+      bracket: byKeyLevel ? (player.bracket as number) : 0,
+      metric: player.metric,
+      className: player.className,
+      spec: player.spec,
+    }),
+    byKeyLevel ? keyLevelRun(player, encounterId, route) : null,
+  ]);
   if (!isCurrent()) return;
 
+  // M+: WCL's population and unrounded parse for this run, if found
+  const parsed: LabeledParse = run ? { ...main, parse: run.todayParse } : main;
   const specCurve = buildCurve(dist.points, {
-    total: byKeyLevel ? null : player.totalParses,
+    total: byKeyLevel ? (run?.todayTotal ?? null) : player.totalParses,
     complete: dist.complete,
-    anchor: { amount: player.amount, parse: main.parse },
+    anchor: { amount: player.amount, parse: parsed.parse, floored: !run },
   });
 
   // optional hero tree view: rank only among that tree
@@ -169,13 +175,19 @@ async function showAnalysis(
   const share = tree ? treeShare(dist.points, dist.trees, tree.id) : null;
   const curve = share ? treeCurve(specCurve, share) : specCurve;
   const shownParse: LabeledParse =
-    tree && share ? { label: `Among ${tree.name}`, parse: curve.percentileOf(player.amount) } : main;
+    tree && share ? { label: `Among ${tree.name}`, parse: curve.percentileOf(player.amount) } : parsed;
   const trees = dist.heroTrees.map((t) => ({ ...t, share: sampledShare(dist.trees, t.id) }));
 
   const ownLog = { name: player.name, code: route.code, fight: route.fight as number };
   const rank = share
     ? estimatedRank(curve, player.amount)
-    : rankOnLeaderboard(dist, curve, ownLog, player.amount, logged);
+    : rankOnLeaderboard(
+        dist,
+        curve,
+        ownLog,
+        player.amount,
+        run ? rankFromParse(run.todayParse, run.todayTotal) : logged,
+      );
 
   analysisEl.innerHTML = renderAnalysis(
     player,
@@ -197,6 +209,34 @@ async function showAnalysis(
     shownParse.parse,
     logs,
   );
+}
+
+/** The run in the character's key level rankings (1 point, cached); null if not found. */
+async function keyLevelRun(
+  player: Player,
+  encounterId: number,
+  route: ReportRoute,
+): Promise<CharacterLog | null> {
+  const region = player.region;
+  if (!player.realm || (region !== "EU" && region !== "US")) return null;
+  try {
+    const realm = matchRealms(await getRealms(region), player.realm)[0];
+    if (!realm) return null;
+    const run = { code: route.code, fight: route.fight as number };
+    const logs = await getCharacterLogs(
+      player.name,
+      realm.slug,
+      region,
+      encounterId,
+      player.metric,
+      0,
+      true,
+      run,
+    );
+    return logs.find((l) => l.code === run.code && l.fight === run.fight) ?? null;
+  } catch {
+    return null; // e.g. hidden character: fall back to solving the total from the parse
+  }
 }
 
 // ---------- clicks ----------

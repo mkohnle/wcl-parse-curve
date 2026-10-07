@@ -15,6 +15,14 @@ export const loggedRank = (p: Player): Rank | null =>
     ? { rank: p.rank, total: p.totalParses, rankApprox: p.rankApprox, totalKind: "exact" }
     : null;
 
+/** Rank implied by an unrounded parse and its population. */
+export const rankFromParse = (parse: number, total: number): Rank => ({
+  rank: Math.max(1, Math.round(total * (1 - parse / 100))),
+  total,
+  rankApprox: true,
+  totalKind: "exact",
+});
+
 /** Where `amount` sits on the curve. */
 export const estimatedRank = (curve: Curve, amount: number): Rank => ({
   rank: Math.max(1, Math.round(curve.total * (1 - curve.percentileOf(amount) / 100))),

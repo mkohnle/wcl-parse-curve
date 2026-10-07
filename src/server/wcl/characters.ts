@@ -193,6 +193,8 @@ interface RawRank {
   startTime: number;
   amount: number;
   rankPercent: number;
+  todayPercent: number;
+  todayTotalParses: number;
   bracketData: number;
   spec: string;
 }
@@ -206,6 +208,8 @@ const toLogs = (ranks: RawRank[] | undefined): CharacterLog[] =>
       amount: r.amount,
       parse: r.rankPercent,
       bracket: r.bracketData,
+      todayParse: r.todayPercent,
+      todayTotal: r.todayTotalParses,
       spec: compactName(r.spec),
     }))
     .sort((a, b) => b.date - a.date);

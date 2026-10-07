@@ -1,7 +1,7 @@
 import { Router } from "express";
-import type { Region } from "../../shared/api.ts";
+import type { CharacterLog, Region } from "../../shared/api.ts";
 import { cached, DAY, HOUR, MINUTE, prime } from "../cache.ts";
-import { characterParams, HttpError, int, region } from "../http.ts";
+import { characterParams, HttpError, int, region, str } from "../http.ts";
 import { fetchCharacter, fetchCharacterLogs, fetchRealms } from "../wcl/characters.ts";
 import { ensureBudget } from "../wcl/client.ts";
 import { currentZones, fetchLatestZones } from "../wcl/zones.ts";
@@ -57,11 +57,27 @@ characters.get("/character/logs", async (req, res) => {
   const metric = req.query.metric === "hps" ? "hps" : "dps";
   const byKeyLevel = req.query.keyLevel === "1";
   if (!encounterId) throw new HttpError(400, "Invalid encounter");
+  // optional: a run that must be in the list (e.g. from a log uploaded after it was cached)
+  const code = str(req.query.code);
+  const fight = int(req.query.fight);
 
+  const key = logsKey(c, encounterId, metric, difficulty, byKeyLevel);
+  const fetch = async () => {
+    await ensureBudget(1);
+    return fetchCharacterLogs(c.name, c.realm, c.region, encounterId, metric, difficulty, byKeyLevel);
+  };
+  const has = (logs: CharacterLog[]) => logs.some((l) => l.code === code && l.fight === fight);
+  const logs = await cached(key, CHARACTER_TTL, fetch);
+  if (!code || has(logs)) {
+    res.json(logs);
+    return;
+  }
+  // refetch once; if WCL still doesn't list it, don't ask again for a while
   res.json(
-    await cached(logsKey(c, encounterId, metric, difficulty, byKeyLevel), CHARACTER_TTL, async () => {
-      await ensureBudget(1);
-      return fetchCharacterLogs(c.name, c.realm, c.region, encounterId, metric, difficulty, byKeyLevel);
+    await cached(`${key}|${code}|${fight}`, 10 * MINUTE, async () => {
+      const fresh = await fetch();
+      if (has(fresh)) prime(key, CHARACTER_TTL, fresh);
+      return fresh;
     }),
   );
 });
