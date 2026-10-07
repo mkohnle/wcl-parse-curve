@@ -1,20 +1,12 @@
 import type { CharacterZone } from "../../shared/api.ts";
 import { esc } from "../format.ts";
-import { TIERS, tierColor } from "../wow.ts";
+import { bossIcon, TIER_STOPS, tierColor } from "../wow.ts";
+import { img } from "./common.ts";
 
 type Boss = CharacterZone["bosses"][number];
 type Done = Boss & { best: number; median: number };
 
 const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
-
-/** Tier colors as hard stops along 0-100. */
-const TRACK = [...TIERS]
-  .reverse()
-  .map((t, i, all) => {
-    const end = all[i + 1]?.min ?? 100;
-    return `${t.color} ${t.min}% ${end}%`;
-  })
-  .join(", ");
 
 /** How well (best parses), how steady (medians) and, for M+, how high (key levels). */
 export function renderZoneSummary(z: CharacterZone): string {
@@ -76,13 +68,19 @@ export function renderZoneSummary(z: CharacterZone): string {
       </div>
 
       <div class="relative mt-5 h-4">
-        <div class="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full opacity-40" style="background:linear-gradient(90deg, ${TRACK})"></div>
+        <div class="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full opacity-40" style="background:linear-gradient(90deg, ${TIER_STOPS})"></div>
         <div class="absolute top-0 h-4 w-px bg-white/60" style="left:${best}%" title="Performance ${Math.floor(best)}"></div>
         ${done
           .map(
             (b) =>
-              `<span class="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-panel"
-                 style="left:${b.best}%;background:${tierColor(b.best)}" title="${label(b)}: ${Math.floor(b.best)}"></span>`,
+              `<span class="group absolute top-1/2 -translate-x-1/2 -translate-y-1/2 p-1 hover:z-10" style="left:${b.best}%">
+                 <span class="block size-3 rounded-full ring-2 ring-panel transition group-hover:scale-125" style="background:${tierColor(b.best)}"></span>
+                 <span class="pointer-events-none absolute bottom-full left-1/2 mb-1 hidden w-max -translate-x-1/2 items-center gap-2 rounded-sm border border-line bg-panel-2 py-1 pr-2 pl-1 text-xs shadow-lg group-hover:flex">
+                   ${img(bossIcon(b.encounterId), "size-6")}
+                   <span class="text-zinc-200">${label(b)}</span>
+                   <span class="border-l border-line pl-2 font-bold tabular-nums" style="color:${tierColor(b.best)}">${Math.floor(b.best)}</span>
+                 </span>
+               </span>`,
           )
           .join("")}
       </div>

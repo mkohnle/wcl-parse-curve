@@ -2,7 +2,7 @@ import type { Fight, Player, ReportResponse, Role } from "../../shared/api.ts";
 import { compact, date, duration, esc, spaced } from "../format.ts";
 import { runTags, type Tag } from "../run-tags.ts";
 import { DEMO_CODE } from "../search-input.ts";
-import { bossIcon, classColor, difficultyName, specIcon, tierColor, zoneIcon } from "../wow.ts";
+import { bossIcon, classColor, difficultyName, specIcon, tierColor, tierMetal, zoneIcon } from "../wow.ts";
 import { img, skeleton } from "./common.ts";
 
 export function renderReportHeader(code: string, report: ReportResponse): string {
@@ -107,14 +107,16 @@ export function renderPlayers(
     const cards = list.map((p) => {
       const cc = classColor(p.className);
       const on = p.name === selected;
+      const parse = Math.floor(shown(p));
+      const mvp = tags.get(p.name)?.some((t) => t.label === "MVP");
       return `
         <button type="button" data-player="${esc(p.name)}"
           class="flex w-full items-center gap-3 rounded-md border p-2 pr-3 text-left transition ${
             on
               ? "border-gold/80 bg-gold/10 ring-1 ring-gold/40"
               : "border-line bg-panel hover:border-zinc-500 hover:bg-panel-2"
-          }">
-          ${img(specIcon(p.className, p.spec), "size-10", undefined, `border-color:${cc}`)}
+          } ${mvp ? "border-t-2 border-t-gold" : ""}">
+          ${img(specIcon(p.className, p.spec), "size-10 border-2", undefined, `border-color:${tierColor(parse)}`)}
           <div class="min-w-0 flex-1">
             <div class="flex flex-wrap items-center gap-1">
               <span class="mr-0.5 truncate font-semibold" style="color:${cc}">${esc(p.name)}</span>
@@ -123,7 +125,7 @@ export function renderPlayers(
             <div class="truncate text-xs text-zinc-500">${esc(spaced(p.spec))} · ${compact(p.amount)} ${p.metric.toUpperCase()}</div>
             ${runStats(p)}
           </div>
-          <div class="text-2xl font-bold tabular-nums" style="color:${tierColor(shown(p))}">${Math.floor(shown(p))}</div>
+          <div class="text-2xl font-bold tabular-nums ${tierMetal(parse)}" style="color:${tierColor(parse)}">${parse}</div>
         </button>`;
     });
     return `<div><div class="label mb-2">${title}</div><div class="space-y-2">${cards.join("")}</div></div>`;

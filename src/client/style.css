@@ -36,4 +36,44 @@
   .icon {
     @apply shrink-0 rounded border border-black/60 bg-panel-2 object-cover;
   }
+  /* pink and gold parses: metallic text, the color style stays as fallback */
+  .metal-pink,
+  .metal-gold {
+    background: linear-gradient(170deg, var(--m1) 20%, var(--m2) 50%, var(--m1) 80%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .metal-pink {
+    --m1: #e268a8;
+    --m2: #ffc6e3;
+  }
+  .metal-gold {
+    --m1: #c9a64a;
+    --m2: #fff1c4;
+  }
+}
+
+/* one-time entrance animations, off for reduced motion */
+@media (prefers-reduced-motion: no-preference) {
+  .rise {
+    transform-box: fill-box;
+    transform-origin: bottom;
+    animation: rise 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  .draw {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: draw 1.2s 0.3s ease-out forwards;
+  }
+}
+@keyframes rise {
+  from {
+    transform: scaleY(0);
+  }
+}
+@keyframes draw {
+  to {
+    stroke-dashoffset: 0;
+  }
 }

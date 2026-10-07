@@ -40,6 +40,15 @@ export const TIERS = [
 export const tierColor = (parse: number) =>
   (TIERS.find((t) => Math.floor(parse) >= t.min) ?? TIERS[TIERS.length - 1]).color;
 
+/** Metal look for pink and gold parses (see style.css); use next to a tierColor style. */
+export const tierMetal = (parse: number) => (parse >= 100 ? "metal-gold" : parse >= 99 ? "metal-pink" : "");
+
+/** Tier colors as hard stops along 0-100, for a CSS linear-gradient. */
+export const TIER_STOPS = [...TIERS]
+  .reverse()
+  .map((t, i, all) => `${t.color} ${t.min}% ${all[i + 1]?.min ?? 100}%`)
+  .join(", ");
+
 const DIFFICULTIES: Record<number, string> = {
   1: "LFR",
   3: "Normal",

@@ -2,7 +2,7 @@ import type { HeroTree, Player } from "../../shared/api.ts";
 import type { Curve } from "../curve.ts";
 import { compact, esc, fmt, spaced } from "../format.ts";
 import type { Rank } from "../rank.ts";
-import { classColor, specIcon, TIERS, talentIcon, tierColor } from "../wow.ts";
+import { classColor, specIcon, TIERS, talentIcon, tierColor, tierMetal } from "../wow.ts";
 import { img, skeleton } from "./common.ts";
 
 /** e.g. { label: "+18 parse", parse: 19 } */
@@ -40,7 +40,7 @@ function header(p: Player, main: LabeledParse, rank: Rank | null | undefined): s
       </div>
       <div class="ml-auto text-right">
         <div class="label">${esc(main.label)}</div>
-        <div class="text-5xl font-bold tabular-nums leading-none" style="color:${color}">${current}</div>
+        <div class="text-5xl font-bold tabular-nums leading-none ${tierMetal(current)}" style="color:${color}">${current}</div>
         ${rank ? rankLine(rank) : rank === undefined ? skeleton("mt-1 ml-auto h-5 w-24") : ""}
       </div>
     </div>`;
