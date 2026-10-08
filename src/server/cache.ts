@@ -5,6 +5,12 @@ export const DAY = 24 * HOUR;
 const MAX_ENTRIES = 1000;
 const entries = new Map<string, { value: Promise<unknown>; expires: number }>();
 
+/** The cached value if there and not expired. */
+export function peek<T>(key: string): Promise<T> | undefined {
+  const hit = entries.get(key);
+  return hit && Date.now() < hit.expires ? (hit.value as Promise<T>) : undefined;
+}
+
 /** Store a value that was fetched as part of something else. */
 export function prime<T>(key: string, ttl: number, value: T) {
   entries.set(key, { value: Promise.resolve(value), expires: Date.now() + ttl });

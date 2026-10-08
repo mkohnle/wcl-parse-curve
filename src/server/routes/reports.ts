@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { cached, DAY, HOUR, MINUTE } from "../cache.ts";
+import type { FightResponse } from "../../shared/api.ts";
+import { cached, DAY, HOUR, MINUTE, peek, prime } from "../cache.ts";
 import { demoFight, demoReport, isDemoCode } from "../demo.ts";
 import { HttpError, int, str } from "../http.ts";
 import { ensureBudget } from "../wcl/client.ts";
@@ -52,7 +53,7 @@ reports.get("/fight", async (req, res) => {
   const { report, endTime } = await getReport(code);
   const mythicPlus = (report.fights.find((f) => f.id === fightId)?.keystoneLevel ?? 0) > 0;
   // not ranked yet: retry soon. Recent: rankings may still change.
-  const fight = await cached(
+  const fresh = await cached(
     `fight|${code}|${fightId}`,
     (f) => (!f ? FRESH : isRecent(endTime) ? 10 * MINUTE : DAY),
     async () => {
@@ -60,6 +61,10 @@ reports.get("/fight", async (req, res) => {
       return fetchFight(code, fightId, mythicPlus);
     },
   );
+  // while WCL processes a new upload, fights it had ranked can briefly come back unranked: keep the last ranking
+  const rankedKey = `fight-ranked|${code}|${fightId}`;
+  if (fresh) prime(rankedKey, DAY, fresh);
+  const fight = fresh ?? (await peek<FightResponse>(rankedKey));
   if (!fight)
     throw new HttpError(
       404,
