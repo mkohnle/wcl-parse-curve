@@ -88,7 +88,7 @@ root.addEventListener("click", async (e) => {
   const log = target.closest<HTMLElement>("[data-log]");
   if (log) {
     const [code, fightId] = (log.dataset.log ?? "").split(":");
-    navigate({ page: "report", code, fight: Number(fightId), player: c.name, tree: null });
+    navigate({ page: "report", code, fight: Number(fightId), player: c.name, tree: null, metric: null });
     return;
   }
 

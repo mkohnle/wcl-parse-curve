@@ -54,7 +54,14 @@ async function submit() {
     setStatus("Paste a Warcraft Logs report link, or type a character as Name-Realm.", true);
     return;
   }
-  navigate({ page: "report", code: report.code, fight: report.fight, player: null, tree: null });
+  navigate({
+    page: "report",
+    code: report.code,
+    fight: report.fight,
+    player: null,
+    tree: null,
+    metric: null,
+  });
 }
 
 form.addEventListener("submit", (e) => {

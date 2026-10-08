@@ -1,5 +1,5 @@
 import { Router } from "express";
-import type { DistributionQuery } from "../../shared/api.ts";
+import { CURVE_METRICS, type CurveMetric, type DistributionQuery } from "../../shared/api.ts";
 import { cached, HOUR } from "../cache.ts";
 import { getDistribution } from "../distribution.ts";
 import { HttpError, int, str } from "../http.ts";
@@ -14,7 +14,10 @@ leaderboards.get("/distribution", async (req, res) => {
     difficulty: int(req.query.difficulty),
     partition: int(req.query.partition),
     bracket: int(req.query.bracket),
-    metric: req.query.metric === "hps" ? "hps" : "dps",
+    metric: CURVE_METRICS.includes(req.query.metric as CurveMetric)
+      ? (req.query.metric as CurveMetric)
+      : "dps",
+    lite: req.query.lite === "1" || req.query.lite === "true",
     className: str(req.query.className),
     spec: str(req.query.spec),
   };
@@ -29,6 +32,7 @@ leaderboards.get("/distribution", async (req, res) => {
     q.partition,
     q.bracket,
     q.metric,
+    q.lite,
     q.className,
     q.spec,
   ].join("|");

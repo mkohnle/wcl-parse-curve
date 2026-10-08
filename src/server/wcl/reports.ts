@@ -2,6 +2,7 @@ import type {
   Fight,
   FightResponse,
   Metric,
+  MetricResult,
   Player,
   ReportResponse,
   Role,
@@ -146,9 +147,9 @@ export async function fetchFight(
   const stats =
     report.summary && report.kicks ? runStats(report.summary.data, report.kicks.data.entries) : null;
   const players = [
-    ...toPlayers(dps, "tanks", "dps"),
-    ...toPlayers(hps, "healers", "hps"),
-    ...toPlayers(dps, "dps", "dps"),
+    ...toPlayers(dps, "tanks", "dps", hps),
+    ...toPlayers(hps, "healers", "hps", dps),
+    ...toPlayers(dps, "dps", "dps", hps),
   ].map((p) => (stats ? { ...p, run: stats(p.name) } : p));
   // right after upload WCL can return rankings with every parse still 0
   if (players.every((p) => !p.parse && !p.bracketParse)) return null;
@@ -190,7 +191,25 @@ function runStats(summary: RawSummary, interrupts: RawInterrupts[]): (name: stri
   };
 }
 
-function toPlayers(ranking: RawFightRanking | undefined, group: RoleGroup, metric: Metric): Player[] {
+/** otherRanking: the same fight in the other metric, for `Player.other`. */
+function toPlayers(
+  ranking: RawFightRanking | undefined,
+  group: RoleGroup,
+  metric: Metric,
+  otherRanking: RawFightRanking | undefined,
+): Player[] {
+  const others = Object.values(otherRanking?.roles ?? {}).flatMap((g) => g?.characters ?? []);
+  const otherOf = (name: string): MetricResult | null => {
+    const o = others.find((x) => x.name === name);
+    return o
+      ? {
+          amount: o.amount,
+          parse: o.rankPercent,
+          bracketParse: o.bracketPercent ?? null,
+          totalParses: o.totalParses ?? null,
+        }
+      : null;
+  };
   return (ranking?.roles?.[group]?.characters ?? []).map((c) => ({
     name: c.name,
     className: compactName(c.class),
@@ -206,6 +225,7 @@ function toPlayers(ranking: RawFightRanking | undefined, group: RoleGroup, metri
     bracket: c.bracket ?? null,
     realm: c.server?.name ?? null,
     region: c.server?.region ?? null,
+    other: otherOf(c.name),
     run: null,
   }));
 }

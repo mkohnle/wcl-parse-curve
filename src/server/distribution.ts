@@ -8,13 +8,16 @@ import { fetchRankingPage, type RankingEntry } from "./wcl/leaderboards.ts";
 
 /** 4 of 20 pages, 1 point each. As accurate as 8 on synthetic data. */
 const SAMPLE_PAGES = [1, 4, 11, MAX_PAGE];
+/** Optional metrics: just the top and the end of the top 2000; the player's parse pins the rest. */
+const LITE_PAGES = [1, MAX_PAGE];
 /** Worst case incl. the search for the last page of a short leaderboard. */
-const DISTRIBUTION_COST = SAMPLE_PAGES.length + 4;
+const cost = (pages: number[]) => pages.length + 4;
 
 /** Sampled leaderboard of a spec: the data the curve is built from. */
 export async function getDistribution(q: DistributionQuery): Promise<DistributionResponse> {
   const demo = isDemoEncounter(q.encounterId);
-  if (!demo) await ensureBudget(DISTRIBUTION_COST);
+  const samplePages = q.lite ? LITE_PAGES : SAMPLE_PAGES;
+  if (!demo) await ensureBudget(cost(samplePages));
   const fetchPage = async (p: number) => (demo ? demoRankingPage(q, p) : fetchRankingPage(q, p));
 
   const pages = new Map<number, RankingEntry[]>();
@@ -26,11 +29,11 @@ export async function getDistribution(q: DistributionQuery): Promise<Distributio
 
   if (!(await load(1))) throw new HttpError(404, "No rankings found for that selection");
   if (pages.get(1)?.length === PAGE_SIZE) {
-    await Promise.all(SAMPLE_PAGES.slice(1).map(load));
+    await Promise.all(samplePages.slice(1).map(load));
     // leaderboard ends before page 20: find the last page
-    const sampled = SAMPLE_PAGES.filter((p) => pages.get(p)?.length);
+    const sampled = samplePages.filter((p) => pages.get(p)?.length);
     let good = sampled[sampled.length - 1];
-    let bad = SAMPLE_PAGES.find((p) => p > good && !pages.get(p)?.length);
+    let bad = samplePages.find((p) => p > good && !pages.get(p)?.length);
     while (bad && bad - good > 1) {
       const mid = (good + bad) >> 1;
       if (await load(mid)) good = mid;

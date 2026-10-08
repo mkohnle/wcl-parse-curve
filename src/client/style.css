@@ -147,6 +147,7 @@
     animation: draw 1.2s 0.3s ease-out forwards;
   }
 }
+
 @keyframes rise {
   from {
     transform: scaleY(0);

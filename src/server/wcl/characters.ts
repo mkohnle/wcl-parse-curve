@@ -3,6 +3,7 @@ import type {
   CharacterLog,
   CharacterResponse,
   CharacterZone,
+  CurveMetric,
   Metric,
   Realm,
   Region,
@@ -243,7 +244,7 @@ export async function fetchCharacterLogs(
   realm: string,
   region: Region,
   encounterId: number,
-  metric: Metric,
+  metric: CurveMetric,
   difficulty: number,
   byKeyLevel: boolean,
 ): Promise<CharacterLog[]> {

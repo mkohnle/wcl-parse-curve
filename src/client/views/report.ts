@@ -82,13 +82,6 @@ const ROLE_GROUPS: [Role, string][] = [
 const badge = (t: Tag) =>
   `<span title="${t.title}" class="shrink-0 rounded-sm px-1 text-[10px] font-bold uppercase ${t.classes}">${t.label}</span>`;
 
-/** M+: damage share and kicks. */
-function runStats(p: Player): string {
-  if (!p.run) return "";
-  const kicks = p.run.interrupts;
-  return `<div class="truncate text-xs text-zinc-500">${Math.round(p.run.damageShare * 100)}% dmg · ${kicks} ${kicks === 1 ? "kick" : "kicks"}</div>`;
-}
-
 /** byKeyLevel: show the key level parse (M+). */
 export function renderPlayers(
   players: Player[],
@@ -122,8 +115,7 @@ export function renderPlayers(
               <span class="mr-0.5 truncate font-semibold" style="color:${cc}">${esc(p.name)}</span>
               ${(tags.get(p.name) ?? []).map(badge).join("")}
             </div>
-            <div class="truncate text-xs text-zinc-500">${esc(spaced(p.spec))} · ${compact(p.amount)} ${p.metric.toUpperCase()}</div>
-            ${runStats(p)}
+            <div class="truncate text-xs text-zinc-500">${esc(spaced(p.spec))} · <span class="font-semibold text-zinc-200">${compact(p.amount)} ${p.metric.toUpperCase()}</span></div>
           </div>
           <div class="text-2xl font-bold tabular-nums ${tierMetal(parse)}" style="color:${tierColor(parse)}">${parse}</div>
         </button>`;

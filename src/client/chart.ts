@@ -1,6 +1,6 @@
-import type { LogRef, Player } from "../shared/api.ts";
+import type { CurveMetric, LogRef, Player } from "../shared/api.ts";
 import { type Curve, meanAndStdDev, normalPdf } from "./curve.ts";
-import { compact, date, esc, fmt } from "./format.ts";
+import { compact, date, esc, fmt, metricLabel } from "./format.ts";
 import { TIERS, tierColor } from "./wow.ts";
 
 /** A real leaderboard entry with a link to its log. */
@@ -10,7 +10,7 @@ interface RealLog {
   log: LogRef;
 }
 
-const logUrl = (l: LogRef, metric: Player["metric"]) =>
+const logUrl = (l: LogRef, metric: CurveMetric) =>
   `https://www.warcraftlogs.com/reports/${l.code}#fight=${l.fight}&type=${metric === "hps" ? "healing" : "damage-done"}`;
 
 const W = 900;
@@ -35,11 +35,13 @@ export function mountChart(
   tooltip: HTMLElement,
   curve: Curve,
   player: Player,
-  playerParse: number,
+  /** what the curve shows: the player's amount and parse in that metric */
+  shown: { amount: number; parse: number; metric: CurveMetric },
   logs: RealLog[],
 ): void {
-  const lo = Math.min(curve.amountAt(1), player.amount) * 0.97;
-  const hi = Math.max(curve.amountAt(99.9), player.amount) * 1.03;
+  const { amount, metric } = shown;
+  const lo = Math.min(curve.amountAt(1), amount) * 0.97;
+  const hi = Math.max(curve.amountAt(99.9), amount) * 1.03;
   const bw = (hi - lo) / BINS;
   const exactFrom = curve.amountAtRank(curve.exactRanks);
 
@@ -98,8 +100,8 @@ export function mountChart(
     .map(({ t, v }) => `<rect x="${x(v) - 1}" y="${baseY + 1}" width="2" height="7" fill="${t.color}"/>`)
     .join("");
 
-  const parse = Math.floor(playerParse);
-  const px = x(player.amount);
+  const parse = Math.floor(shown.parse);
+  const px = x(amount);
   const pc = tierColor(parse);
   const anchor = px > W - 160 ? "end" : px < 160 ? "start" : "middle";
 
@@ -137,7 +139,7 @@ export function mountChart(
 
   svg.addEventListener("click", (e) => {
     const example = bins[binAt(e)]?.example;
-    if (example) window.open(logUrl(example.log, player.metric), "_blank", "noopener");
+    if (example) window.open(logUrl(example.log, metric), "_blank", "noopener");
   });
 
   svg.addEventListener("pointerleave", hide);
@@ -155,7 +157,7 @@ export function mountChart(
       const b = bins[i];
       svg.style.cursor = b.example ? "pointer" : "default";
       tooltip.innerHTML = `
-        <div class="font-semibold text-zinc-100">${compact(b.lo)} – ${compact(b.hi)} ${player.metric.toUpperCase()}</div>
+        <div class="font-semibold text-zinc-100">${compact(b.lo)} – ${compact(b.hi)} ${metricLabel(metric)}</div>
         <div style="color:${tierColor(b.pHi)}">Parse ${Math.floor(b.pLo)} – ${Math.floor(b.pHi)}</div>
         <div class="text-zinc-400">≈ ${fmt(b.count)} parses (${(b.pHi - b.pLo).toFixed(1)}%)</div>
         ${b.estimated ? `<div class="text-xs italic text-zinc-500">estimated</div>` : ""}

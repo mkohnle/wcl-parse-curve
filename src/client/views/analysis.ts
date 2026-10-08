@@ -1,14 +1,18 @@
-import type { HeroTree, Player } from "../../shared/api.ts";
+import type { CurveMetric, HeroTree, Player } from "../../shared/api.ts";
 import type { Curve } from "../curve.ts";
-import { compact, esc, fmt, spaced } from "../format.ts";
+import { compact, esc, fmt, metricLabel, spaced } from "../format.ts";
 import type { Rank } from "../rank.ts";
 import { classColor, specIcon, TIERS, talentIcon, tierColor, tierMetal } from "../wow.ts";
 import { img, skeleton } from "./common.ts";
+import { renderGroup } from "./group.ts";
 
-/** e.g. { label: "+18 parse", parse: 19 } */
+/** The parse a curve is built for, e.g. { label: "+18 parse", parse: 19, amount: 512000, metric: "dps" } */
 export interface LabeledParse {
   label: string;
   parse: number;
+  /** the player's amount in `metric` */
+  amount: number;
+  metric: CurveMetric;
 }
 
 /** A hero tree with its share among the sampled leaderboard entries (0-1). */
@@ -36,7 +40,7 @@ function header(p: Player, main: LabeledParse, rank: Rank | null | undefined): s
       ${img(specIcon(p.className, p.spec), "size-16 border-2", undefined, `border-color:${cc}`)}
       <div class="min-w-0">
         ${name}
-        <div class="text-zinc-400">${esc(spaced(p.spec))} ${esc(spaced(p.className))}${p.realm ? ` · ${esc(p.realm)}` : ""} · <span class="text-zinc-200">${fmt(p.amount)}</span> ${p.metric.toUpperCase()}${p.run?.itemLevel ? ` · ilvl ${p.run.itemLevel}` : ""}</div>
+        <div class="text-zinc-400">${esc(spaced(p.spec))} ${esc(spaced(p.className))}${p.realm ? ` · ${esc(p.realm)}` : ""} · <span class="text-zinc-200">${fmt(main.amount)}</span> ${metricLabel(main.metric)}${p.run?.itemLevel ? ` · ilvl ${p.run.itemLevel}` : ""}</div>
       </div>
       <div class="ml-auto text-right">
         <div class="label">${esc(main.label)}</div>
@@ -60,6 +64,19 @@ function treeToggle(trees: TreeOption[], selected: number | null): string {
       <span class="label mr-1" title="Share among the sampled top of the leaderboard">Hero tree</span>
       ${button(null, "All")}
       ${trees.map((t) => button(t.id, t.name, t.share, t.icon)).join("")}
+    </div>`;
+}
+
+/** Curve metric switch; the player's own metric first. Empty without options. */
+function metricToggle(metrics: CurveMetric[], own: CurveMetric, selected: CurveMetric): string {
+  if (metrics.length < 2) return "";
+  const button = (m: CurveMetric) =>
+    `<button type="button" data-metric="${m === own ? "" : m}" class="btn ${m === selected ? "btn-on" : ""}"
+       ${m === own ? "" : `title="Loads another leaderboard (about 3 API points, then cached)"`}>${metricLabel(m)}</button>`;
+  return `
+    <div class="flex flex-wrap items-center gap-2 border-b border-line px-5 py-3">
+      <span class="label mr-1">Curve</span>
+      ${[own, ...metrics.filter((m) => m !== own)].map(button).join("")}
     </div>`;
 }
 
@@ -90,20 +107,24 @@ export function renderAnalysis(
   rank: Rank,
   trees: TreeOption[],
   selectedTree: number | null,
+  /** curve metrics on offer; fewer than 2: no switch */
+  metrics: CurveMetric[],
+  /** everyone in the fight, for the group comparison (M+) */
+  group: Player[],
 ): string {
   // the log's parse; the curve is pinned to it
   const current = Math.floor(main.parse);
 
   const target = (parse: number, label: string, color: string) => {
     const need = curve.amountAt(parse);
-    const diff = need - p.amount;
+    const diff = need - main.amount;
     return `
       <li class="flex items-center gap-3 py-2">
         <span class="size-2.5 shrink-0 rounded-full" style="background:${color}"></span>
         <span class="flex-1 text-zinc-300">${label}</span>
         <span class="text-right tabular-nums">
           <span class="font-semibold text-zinc-100">${compact(need)}</span>
-          <span class="block text-xs text-zinc-500">+${compact(diff)} (+${((diff / p.amount) * 100).toFixed(1)}%)</span>
+          <span class="block text-xs text-zinc-500">+${compact(diff)} (+${((diff / main.amount) * 100).toFixed(1)}%)</span>
         </span>
       </li>`;
   };
@@ -127,6 +148,7 @@ export function renderAnalysis(
   return `
     <section class="panel overflow-hidden">
       ${header(p, main, rank)}
+      ${metricToggle(metrics, p.metric, main.metric)}
       ${treeToggle(trees, selectedTree)}
       <div class="grid lg:grid-cols-[1fr_290px]">
         <div class="p-5">
@@ -149,6 +171,7 @@ export function renderAnalysis(
           </div>
         </aside>
       </div>
+      ${renderGroup(group, p.name)}
       <p class="border-t border-line px-5 py-3 text-xs text-zinc-500">${note}</p>
     </section>`;
 }

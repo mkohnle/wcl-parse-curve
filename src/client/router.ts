@@ -1,6 +1,6 @@
 // The URL is the state: each page is a route, and the back button just works.
 
-import type { CharacterSection, Region } from "../shared/api.ts";
+import { type CharacterSection, CURVE_METRICS, type CurveMetric, type Region } from "../shared/api.ts";
 
 export interface ReportRoute {
   page: "report";
@@ -9,6 +9,8 @@ export interface ReportRoute {
   player: string | null;
   /** hero tree id, null = whole spec */
   tree: number | null;
+  /** curve metric, null = the player's own */
+  metric: CurveMetric | null;
 }
 
 export interface CharacterRoute {
@@ -78,6 +80,7 @@ function toParams(route: Route): URLSearchParams {
     if (route.fight) params.set("fight", String(route.fight));
     if (route.player) params.set("player", route.player);
     if (route.tree) params.set("tree", String(route.tree));
+    if (route.metric) params.set("metric", route.metric);
   } else if (route.page === "character") {
     params.set("char", `${route.name}-${route.realm}-${route.region}`);
     if (route.section !== "raid") params.set("section", route.section);
@@ -113,5 +116,6 @@ function readUrl(): Route {
     fight: Number(params.get("fight")) || null,
     player: params.get("player"),
     tree: Number(params.get("tree")) || null,
+    metric: CURVE_METRICS.find((m) => m === params.get("metric")) ?? null,
   };
 }

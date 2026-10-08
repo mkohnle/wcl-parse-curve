@@ -25,7 +25,7 @@ dom.recent.addEventListener("click", (e) => {
   const it = btn && loadRecent()[Number(btn.dataset.recent)];
   if (!it) return;
   if (it.kind === "report") {
-    navigate({ page: "report", code: it.code, fight: null, player: null, tree: null });
+    navigate({ page: "report", code: it.code, fight: null, player: null, tree: null, metric: null });
   } else {
     navigate({
       page: "character",

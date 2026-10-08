@@ -1,6 +1,9 @@
 // Response shapes of our own /api endpoints, shared by server and client.
 
 export type Metric = "dps" | "hps";
+/** What a curve can show: the player's metric, or another one WCL keeps leaderboards for. */
+export type CurveMetric = Metric | "bossdps";
+export const CURVE_METRICS: CurveMetric[] = ["dps", "hps", "bossdps"];
 export type Role = "tank" | "healer" | "dps";
 export type Region = "EU" | "US";
 
@@ -63,8 +66,18 @@ export interface Player {
   /** null if unknown (e.g. demo) */
   realm: string | null;
   region: string | null;
+  /** The same fight in the other metric (HPS for damage dealers, DPS for healers); null if unranked. */
+  other: MetricResult | null;
   /** M+ only, else null */
   run: RunStats | null;
+}
+
+/** A player's result in one metric, from the fight's rankings. */
+export interface MetricResult {
+  amount: number;
+  parse: number;
+  bracketParse: number | null;
+  totalParses: number | null;
 }
 
 /** A player's stats over a whole M+ run. */
@@ -99,7 +112,9 @@ export interface DistributionQuery {
   partition: number;
   /** Bracket index, 0 = all brackets */
   bracket: number;
-  metric: Metric;
+  metric: CurveMetric;
+  /** fewer sampled pages, for the optional metrics */
+  lite: boolean;
   className: string;
   spec: string;
 }

@@ -4,10 +4,10 @@ import type {
   CharacterLog,
   CharacterResponse,
   CharacterSection,
+  CurveMetric,
   DistributionQuery,
   DistributionResponse,
   FightResponse,
-  Metric,
   Realm,
   Region,
   ReportResponse,
@@ -75,7 +75,7 @@ export const getFight = memo((code: string, fight: number) =>
 );
 
 export const getDistribution = memo((q: DistributionQuery) =>
-  getJson<DistributionResponse>("/api/distribution", { ...q }),
+  getJson<DistributionResponse>("/api/distribution", { ...q, lite: q.lite ? 1 : 0 }),
 );
 
 export const getRealms = memo((region: Region) => getJson<Realm[]>("/api/realms", { region }));
@@ -90,7 +90,7 @@ export const getCharacterLogs = memo(
     realm: string,
     region: Region,
     encounterId: number,
-    metric: Metric,
+    metric: CurveMetric,
     difficulty: number,
     keyLevel: boolean,
     /** a run that must be included; refetched if the cached list predates it */

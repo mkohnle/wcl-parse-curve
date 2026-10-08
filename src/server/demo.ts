@@ -226,6 +226,7 @@ export function demoFight(fightId: number): FightResponse | null {
         realm: null,
         region: null,
         bracket: null,
+        other: null,
         run: null,
       };
     }
@@ -249,6 +250,7 @@ export function demoFight(fightId: number): FightResponse | null {
       realm: null,
       region: null,
       bracket: KEY_BRACKET,
+      other: null,
       run: demoRun(role, r),
     };
   });

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import type { CharacterLog, Region } from "../../shared/api.ts";
+import { type CharacterLog, CURVE_METRICS, type CurveMetric, type Region } from "../../shared/api.ts";
 import { cached, DAY, HOUR, MINUTE, prime } from "../cache.ts";
 import { characterParams, HttpError, int, region, str } from "../http.ts";
 import { fetchCharacter, fetchCharacterLogs, fetchRealms } from "../wcl/characters.ts";
@@ -54,7 +54,9 @@ characters.get("/character/logs", async (req, res) => {
   const c = characterParams(req);
   const encounterId = int(req.query.encounterId);
   const difficulty = int(req.query.difficulty);
-  const metric = req.query.metric === "hps" ? "hps" : "dps";
+  const metric = CURVE_METRICS.includes(req.query.metric as CurveMetric)
+    ? (req.query.metric as CurveMetric)
+    : "dps";
   const byKeyLevel = req.query.keyLevel === "1";
   if (!encounterId) throw new HttpError(400, "Invalid encounter");
   // optional: a run that must be in the list (e.g. from a log uploaded after it was cached)

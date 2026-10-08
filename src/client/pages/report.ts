@@ -1,9 +1,19 @@
-import type { CharacterLog, Fight, FightResponse, Player, Region, ReportResponse } from "../../shared/api.ts";
+import {
+  type CharacterLog,
+  CURVE_METRICS,
+  type CurveMetric,
+  type Fight,
+  type FightResponse,
+  type Player,
+  type Region,
+  type ReportResponse,
+} from "../../shared/api.ts";
 import { getCharacterLogs, getDistribution, getFight, getRealms, getReport } from "../api.ts";
 import { showBudget } from "../budget.ts";
 import { mountChart } from "../chart.ts";
 import { buildCurve } from "../curve.ts";
 import { dom, errorMessage, pageDom, setBusy, setStatus } from "../dom.ts";
+import { metricLabel } from "../format.ts";
 import { sampledShare, treeCurve, treeShare } from "../hero-tree.ts";
 import { prefs } from "../prefs.ts";
 import { estimatedRank, loggedRank, rankFromParse, rankOnLeaderboard } from "../rank.ts";
@@ -134,40 +144,93 @@ async function showAnalysis(
   // overall M+ parse weighs key level; use the key level leaderboard instead
   const isMythicPlus = (meta?.keystoneLevel ?? 0) > 0;
   const byKeyLevel = isMythicPlus && player.bracket != null && player.bracketParse != null;
-  const main: LabeledParse = byKeyLevel
-    ? { label: `+${meta?.keystoneLevel} parse`, parse: player.bracketParse as number }
-    : { label: "Parse", parse: player.parse };
-  // WCL ranks the overall parse only, not the key level one
-  const logged = byKeyLevel ? null : loggedRank(player);
+  const difficulty = isMythicPlus ? 0 : meta?.difficulty || f.difficulty;
+  const encounterId = meta?.encounterId || f.encounterId;
+  const known = Boolean(player.realm) && (player.region === "EU" || player.region === "US");
+  // the other of DPS/HPS comes with the fight; boss damage needs the character ranking (and says little in a dungeon)
+  const otherResult =
+    player.other && (!byKeyLevel || player.other.bracketParse !== null) ? player.other : null;
+  const metrics = CURVE_METRICS.filter((m) =>
+    m === player.metric ? true : m === "bossdps" ? known && !isMythicPlus : otherResult !== null || known,
+  );
+  const metric = route.metric && metrics.includes(route.metric) ? route.metric : player.metric;
+  const other = metric !== player.metric;
+  // the shown metric from the fight's rankings, if there
+  const fromFight = other ? (metric === "bossdps" ? null : otherResult) : player;
 
-  // only the hero tree changed: re-render in place, no placeholder, no scroll
+  const label = (m: CurveMetric) => {
+    const s = [byKeyLevel && `+${meta?.keystoneLevel}`, m !== player.metric && metricLabel(m), "parse"]
+      .filter(Boolean)
+      .join(" ");
+    return s[0].toUpperCase() + s.slice(1);
+  };
+  const own: LabeledParse = {
+    label: label(player.metric),
+    parse: byKeyLevel ? (player.bracketParse as number) : player.parse,
+    amount: player.amount,
+    metric: player.metric,
+  };
+  const main: LabeledParse = fromFight
+    ? {
+        label: label(metric),
+        parse: byKeyLevel ? (fromFight.bracketParse as number) : fromFight.parse,
+        amount: fromFight.amount,
+        metric,
+      }
+    : { ...own, label: label(metric), metric };
+  // WCL ranks the overall parse only, not the key level one
+  const logged = byKeyLevel || other ? null : loggedRank(player);
+
+  // same player: re-render in place, no placeholder, no scroll
   const sameView = prev?.code === route.code && prev.fight === route.fight && prev.player === route.player;
   if (!sameView) {
-    analysisEl.innerHTML = renderAnalysisLoading(player, main, logged ?? undefined);
+    analysisEl.innerHTML = renderAnalysisLoading(player, own, logged ?? undefined);
     analysisEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  } else if (prev?.metric !== route.metric) {
+    showMetricLoading(metric, player.metric);
   }
 
-  const encounterId = meta?.encounterId || f.encounterId;
-  const [dist, run] = await Promise.all([
+  const loaded = Promise.all([
     getDistribution({
       encounterId,
-      difficulty: isMythicPlus ? 0 : meta?.difficulty || f.difficulty,
+      difficulty,
       partition: f.partition || 0,
       bracket: byKeyLevel ? (player.bracket as number) : 0,
-      metric: player.metric,
+      metric,
+      lite: other,
       className: player.className,
       spec: player.spec,
     }),
-    byKeyLevel ? keyLevelRun(player, encounterId, route) : null,
+    // the character ranking adds WCL's total and the unrounded parse, when it lists this run
+    (byKeyLevel || other) && known
+      ? characterRun(player, encounterId, route, metric, byKeyLevel, difficulty)
+      : null,
   ]);
+  const [dist, run] = await loaded.catch(async (e) => {
+    // a failed metric switch: back to the curve that was shown, then report the error
+    if (sameView && prev && prev.metric !== route.metric && isCurrent()) {
+      shown = prev;
+      replaceRoute(prev);
+      await showAnalysis(prev, route, player, f, meta, isCurrent);
+    }
+    throw e;
+  });
   if (!isCurrent()) return;
+  if (!fromFight && !run) {
+    // fall back to the player's own metric
+    shown = { ...route, metric: null };
+    replaceRoute(shown);
+    await showAnalysis(shown, route, player, f, meta, isCurrent);
+    setStatus(`Warcraft Logs has no ${metricLabel(metric)} ranking for this log.`, true);
+    return;
+  }
 
-  // M+: WCL's population and unrounded parse for this run, if found
-  const parsed: LabeledParse = run ? { ...main, parse: run.todayParse } : main;
+  // WCL's population and unrounded parse for this run, if found
+  const parsed: LabeledParse = run ? { ...main, parse: run.todayParse, amount: run.amount } : main;
   const specCurve = buildCurve(dist.points, {
-    total: byKeyLevel ? (run?.todayTotal ?? null) : player.totalParses,
+    total: run?.todayTotal ?? (byKeyLevel ? null : (fromFight?.totalParses ?? null)),
     complete: dist.complete,
-    anchor: { amount: player.amount, parse: parsed.parse, floored: !run },
+    anchor: { amount: parsed.amount, parse: parsed.parse, floored: !run },
   });
 
   // optional hero tree view: rank only among that tree
@@ -175,17 +238,19 @@ async function showAnalysis(
   const share = tree ? treeShare(dist.points, dist.trees, tree.id) : null;
   const curve = share ? treeCurve(specCurve, share) : specCurve;
   const shownParse: LabeledParse =
-    tree && share ? { label: `Among ${tree.name}`, parse: curve.percentileOf(player.amount) } : parsed;
+    tree && share
+      ? { ...parsed, label: `Among ${tree.name}`, parse: curve.percentileOf(parsed.amount) }
+      : parsed;
   const trees = dist.heroTrees.map((t) => ({ ...t, share: sampledShare(dist.trees, t.id) }));
 
   const ownLog = { name: player.name, code: route.code, fight: route.fight as number };
   const rank = share
-    ? estimatedRank(curve, player.amount)
+    ? estimatedRank(curve, parsed.amount)
     : rankOnLeaderboard(
         dist,
         curve,
         ownLog,
-        player.amount,
+        parsed.amount,
         run ? rankFromParse(run.todayParse, run.todayTotal) : logged,
       );
 
@@ -196,26 +261,42 @@ async function showAnalysis(
     rank,
     trees,
     share ? (tree?.id ?? null) : null,
+    metrics,
+    f.players,
   );
   const logs = dist.points.flatMap(([rank, amount], i) => {
     const log = dist.logs[i];
     return log && (!share || dist.trees[i] === tree?.id) ? [{ rank, amount, log }] : [];
   });
-  mountChart(
-    analysisEl.querySelector("#chart") as HTMLElement,
-    dom.tooltip,
-    curve,
-    player,
-    shownParse.parse,
-    logs,
+  mountChart(analysisEl.querySelector("#chart") as HTMLElement, dom.tooltip, curve, player, shownParse, logs);
+}
+
+/** While another metric loads: mark its button busy and cover the chart. The next render replaces both. */
+function showMetricLoading(metric: CurveMetric, own: CurveMetric) {
+  for (const b of analysisEl.querySelectorAll<HTMLButtonElement>("[data-metric]")) {
+    const on = (b.dataset.metric || own) === metric;
+    b.classList.toggle("btn-on", on);
+    b.disabled = true;
+    if (on) b.insertAdjacentHTML("beforeend", SPINNER);
+  }
+  analysisEl.querySelector("#chart")?.insertAdjacentHTML(
+    "beforeend",
+    `<div class="absolute inset-0 grid place-items-center rounded-sm bg-panel/75 text-sm text-zinc-300">
+      <span class="flex items-center gap-2">${SPINNER}Loading the ${metricLabel(metric)} leaderboard…</span>
+    </div>`,
   );
 }
 
-/** The run in the character's key level rankings (1 point, cached); null if not found. */
-async function keyLevelRun(
+const SPINNER = `<span class="size-3.5 animate-spin rounded-full border-2 border-gold/30 border-t-gold"></span>`;
+
+/** This run in the character's rankings for `metric` (1 point, cached); null if not found. */
+async function characterRun(
   player: Player,
   encounterId: number,
   route: ReportRoute,
+  metric: CurveMetric,
+  byKeyLevel: boolean,
+  difficulty: number,
 ): Promise<CharacterLog | null> {
   const region = player.region;
   if (!player.realm || (region !== "EU" && region !== "US")) return null;
@@ -228,9 +309,9 @@ async function keyLevelRun(
       realm.slug,
       region,
       encounterId,
-      player.metric,
-      0,
-      true,
+      metric,
+      byKeyLevel ? 0 : difficulty,
+      byKeyLevel,
       run,
     );
     return logs.find((l) => l.code === run.code && l.fight === run.fight) ?? null;
@@ -243,12 +324,13 @@ async function keyLevelRun(
 
 fightsEl.addEventListener("click", (e) => {
   const btn = (e.target as HTMLElement).closest<HTMLElement>("[data-fight]");
-  if (btn && shown) navigate({ ...shown, fight: Number(btn.dataset.fight), player: null, tree: null });
+  if (btn && shown)
+    navigate({ ...shown, fight: Number(btn.dataset.fight), player: null, tree: null, metric: null });
 });
 
 playersEl.addEventListener("click", (e) => {
   const btn = (e.target as HTMLElement).closest<HTMLElement>("[data-player]");
-  if (btn && shown) navigate({ ...shown, player: btn.dataset.player ?? null, tree: null });
+  if (btn && shown) navigate({ ...shown, player: btn.dataset.player ?? null, tree: null, metric: null });
 });
 
 analysisEl.addEventListener("click", async (e) => {
@@ -256,6 +338,12 @@ analysisEl.addEventListener("click", async (e) => {
   const treeButton = target.closest<HTMLElement>("[data-tree]");
   if (treeButton && shown) {
     navigate({ ...shown, tree: Number(treeButton.dataset.tree) || null });
+    return;
+  }
+  const metricButton = target.closest<HTMLElement>("[data-metric]");
+  if (metricButton && shown) {
+    const m = metricButton.dataset.metric as CurveMetric | "";
+    navigate({ ...shown, metric: m || null });
     return;
   }
   if (target.closest("[data-character]")) await openCharacter();

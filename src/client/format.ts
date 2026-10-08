@@ -1,3 +1,5 @@
+import type { CurveMetric } from "../shared/api.ts";
+
 export const fmt = (n: number) => Math.round(n).toLocaleString("en-US");
 
 /** 12345 -> "12.3k" */
@@ -23,3 +25,6 @@ export const duration = (ms: number) => {
   const s = Math.round(ms / 1000);
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 };
+
+/** "dps" -> "DPS", "bossdps" -> "Boss DPS" */
+export const metricLabel = (m: CurveMetric) => (m === "bossdps" ? "Boss DPS" : m.toUpperCase());
