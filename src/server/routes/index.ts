@@ -9,6 +9,20 @@ import { reports } from "./reports.ts";
 
 export const api = Router();
 
+// one line per request in the server log (Render's Logs tab), e.g.
+// GET /api/fight?code=abc&fight=5 200 140ms. No IPs. The keep-awake pings are left out.
+api.use((req, res, next) => {
+  if (req.path === "/health") return next();
+  const start = performance.now();
+  res.on("finish", () => {
+    const error = res.locals.error ? ` - ${res.locals.error}` : "";
+    console.log(
+      `${req.method} ${req.originalUrl} ${res.statusCode} ${Math.round(performance.now() - start)}ms${error}`,
+    );
+  });
+  next();
+});
+
 // health check, no WCL call
 api.get("/health", (_req, res) => {
   res.json({ ok: true });
@@ -36,12 +50,14 @@ api.use((_req, _res) => {
 });
 
 const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
+  const message = err instanceof Error ? err.message : String(err);
+  res.locals.error = message; // for the request log
   if (err instanceof HttpError) {
-    res.status(err.status).json({ error: err.message });
+    res.status(err.status).json({ error: message });
     return;
   }
   // most likely a failed WCL request
   console.error(err);
-  res.status(502).json({ error: err instanceof Error ? err.message : String(err) });
+  res.status(502).json({ error: message });
 };
 api.use(errorHandler);
