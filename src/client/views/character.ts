@@ -30,23 +30,19 @@ export const renderCharacterHeaderSkeleton = () => `
 export function renderSectionToggle(selected: CharacterSection): string {
   const button = (section: CharacterSection, label: string) =>
     `<button type="button" data-section="${section}"
-      class="rounded-sm border px-3 py-1 text-sm transition ${
-        section === selected
-          ? "border-gold/80 bg-gold/10 text-gold"
-          : "border-line text-zinc-300 hover:border-zinc-500"
-      }">${label}</button>`;
+      class="btn ${section === selected ? "btn-on" : ""}">${label}</button>`;
   return `<div class="flex gap-2">${button("raid", "Raid")}${button("mythicPlus", "Mythic+")}</div>`;
 }
 
 const parseCell = (v: number | null, classes: string) =>
-  `<span class="text-right tabular-nums ${classes}" style="color:${v === null ? "#52525b" : tierColor(v)}">${v === null ? "–" : Math.floor(v)}</span>`;
+  `<span class="text-right tabular-nums ${classes}" style="color:${v === null ? "#5a5249" : tierColor(v)}">${v === null ? "–" : Math.floor(v)}</span>`;
 
 export function renderCharacterZone(c: CharacterResponse): string {
   const z = c.zone;
   if (!z) return `<div class="panel p-4 text-sm text-zinc-500">No current zone found.</div>`;
   return `
     <section>
-      <h3 class="label mb-2">${esc(z.name)}${z.mythicPlus ? "" : ` · ${difficultyName(z.difficulty)}`}</h3>
+      <h3 class="heading">${esc(z.name)}${z.mythicPlus ? "" : ` · ${difficultyName(z.difficulty)}`}</h3>
       ${renderZoneSummary(z)}
       <div class="panel divide-y divide-line">
         ${zoneHeader(z)}

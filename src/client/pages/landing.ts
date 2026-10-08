@@ -4,13 +4,13 @@ import { dom, setStatus } from "../dom.ts";
 import { prefs } from "../prefs.ts";
 import { loadRecent } from "../recent.ts";
 import { navigate, registerPage } from "../router.ts";
-import { renderHeroCurve, renderRecent, renderTierStrip } from "../views/landing.ts";
+import { renderHeroCurve, renderRecent } from "../views/landing.ts";
 
 // The front page: key visual and recently viewed; hidden once something is open.
 registerPage("landing", {
   show() {
     dom.hero.innerHTML = renderHeroCurve();
-    dom.recent.innerHTML = renderTierStrip() + renderRecent(loadRecent());
+    dom.recent.innerHTML = renderRecent(loadRecent());
     setStatus("");
     showBudget();
   },

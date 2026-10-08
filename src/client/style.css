@@ -8,17 +8,41 @@
   --font-display: "Barlow", "Segoe UI", system-ui, sans-serif;
   --font-sans: "Barlow", "Segoe UI", system-ui, sans-serif;
 
-  --color-ink: #0a0b10;
-  --color-panel: #14151c;
-  --color-panel-2: #1b1d26;
-  --color-line: #2a2d3a;
+  --color-ink: #0c0907;
+  --color-panel: #18120e;
+  --color-panel-2: #221a14;
+  --color-line: #3b2e22;
+  --color-bronze: #6b5232;
   --color-gold: #e5cc80;
   --color-wow: #f8b700;
+
+  /* warm grays (stone) instead of the cool zinc, so all text matches the brown frames */
+  --color-zinc-50: #fafaf9;
+  --color-zinc-100: #f3efe8;
+  --color-zinc-200: #e4ded5;
+  --color-zinc-300: #d1c9bd;
+  --color-zinc-400: #a89f92;
+  --color-zinc-500: #7b7266;
+  --color-zinc-600: #5a5249;
+  --color-zinc-700: #443d36;
+  --color-zinc-800: #2b2520;
+  --color-zinc-900: #1c1814;
+  --color-zinc-950: #0e0b09;
 }
 
 @layer base {
   body {
-    background: linear-gradient(180deg, #14151c 0, var(--color-ink) 420px);
+    background: linear-gradient(180deg, #1d1611 0, var(--color-ink) 420px);
+  }
+  /* faint film grain so the surfaces aren't sterile */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    pointer-events: none;
+    opacity: 0.06;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   }
   /* Tailwind v4 resets buttons to the default cursor */
   button:not(:disabled) {
@@ -27,14 +51,70 @@
 }
 
 @layer components {
+  /* framed like a WoW window: dark rim, bronze line, shaded inside */
   .panel {
-    @apply rounded-lg border border-line bg-panel/90 shadow-xl shadow-black/40;
+    @apply rounded-md border border-bronze/70;
+    background: linear-gradient(180deg, #1e1711, #150f0b);
+    box-shadow:
+      0 0 0 1px #050302,
+      inset 0 1px 0 rgb(229 204 128 / 0.08),
+      inset 0 0 40px rgb(0 0 0 / 0.45),
+      0 12px 32px rgb(0 0 0 / 0.5);
+  }
+  /* top bar, like a WoW window's title bar: bronze double line below */
+  .site-header {
+    background: linear-gradient(180deg, rgb(38 28 20 / 0.95), rgb(20 14 10 / 0.92));
+    border-bottom: 1px solid var(--color-bronze);
+    box-shadow:
+      0 1px 0 #050302,
+      inset 0 -1px 0 rgb(229 204 128 / 0.15),
+      0 8px 24px rgb(0 0 0 / 0.5);
+  }
+  /* round bronze frame for the logo, like a window's portrait */
+  .medallion {
+    @apply grid size-10 place-items-center rounded-full border border-black;
+    background: radial-gradient(circle at 50% 35%, #2a2018, #120d09);
+    box-shadow:
+      0 0 0 2px var(--color-bronze),
+      0 0 0 3px #050302,
+      inset 0 1px 0 rgb(255 255 255 / 0.12);
+  }
+  /* section title, like a window's title bar */
+  .heading {
+    @apply mb-2 border-l-2 border-gold/70 px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-gold;
+    background: linear-gradient(90deg, rgb(229 204 128 / 0.12), transparent 70%);
+  }
+  /* group header, like a category in the profession list */
+  .group-bar {
+    @apply mb-2 rounded-sm border border-bronze/60 px-2 py-0.5 text-xs font-bold uppercase tracking-[0.12em] text-gold;
+    background: linear-gradient(180deg, #5c1d12, #3a110a);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08);
+  }
+  /* buttons and toggles: dark, or red with gold when on */
+  .btn {
+    @apply flex items-center gap-1.5 rounded-sm border border-bronze/70 px-3 py-1 text-sm text-zinc-300 transition;
+    background: linear-gradient(180deg, #2b2119, #1a130e);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06);
+  }
+  .btn:not(:disabled):hover {
+    @apply border-gold/60 text-zinc-100;
+  }
+  .btn-on {
+    @apply border-gold/80 text-gold;
+    background: linear-gradient(180deg, #8a2414, #571208);
+    box-shadow:
+      inset 0 1px 0 rgb(255 220 160 / 0.25),
+      0 0 0 1px #050302;
   }
   .label {
     @apply text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-500;
   }
+  /* beveled frame like WoW's ability and item icons */
   .icon {
-    @apply shrink-0 rounded border border-black/60 bg-panel-2 object-cover;
+    @apply shrink-0 rounded-sm border border-black bg-panel-2 object-cover;
+    box-shadow:
+      0 0 0 1px var(--color-bronze),
+      inset 0 0 0 1px rgb(255 255 255 / 0.1);
   }
   /* pink and gold parses: metallic text, the color style stays as fallback */
   .metal-pink,

@@ -87,7 +87,7 @@ export function mountChart(
   const ticks = Array.from({ length: 7 }, (_, i) => lo + ((hi - lo) * i) / 6)
     .map((v, i) => {
       const align = i === 0 ? "start" : i === 6 ? "end" : "middle";
-      return `<text x="${x(v)}" y="${H - 10}" fill="#71717a" font-size="12" text-anchor="${align}">${compact(v)}</text>`;
+      return `<text x="${x(v)}" y="${H - 10}" fill="#7b7266" font-size="12" text-anchor="${align}">${compact(v)}</text>`;
     })
     .join("");
 
@@ -105,14 +105,14 @@ export function mountChart(
 
   el.innerHTML = `
     <svg viewBox="0 0 ${W} ${H}" class="block h-auto w-full select-none">
-      <line x1="${PAD.left}" x2="${W - PAD.right}" y1="${baseY}" y2="${baseY}" stroke="#2a2d3a"/>
+      <line x1="${PAD.left}" x2="${W - PAD.right}" y1="${baseY}" y2="${baseY}" stroke="#3b2e22"/>
       <g>${bars}</g>
       <path d="${path}" fill="none" stroke="#fff" stroke-width="1.5" stroke-dasharray="6 5" opacity=".55"/>
       ${tierMarks}
       ${ticks}
       <line data-hover x1="0" x2="0" y1="${PAD.top - 8}" y2="${baseY}" stroke="#fff" stroke-opacity=".25" visibility="hidden"/>
       <line x1="${px}" x2="${px}" y1="${PAD.top - 14}" y2="${baseY}" stroke="${pc}" stroke-width="3"/>
-      <circle cx="${px}" cy="${baseY}" r="5" fill="${pc}" stroke="#0a0b10" stroke-width="2"/>
+      <circle cx="${px}" cy="${baseY}" r="5" fill="${pc}" stroke="#0c0907" stroke-width="2"/>
       <text x="${px}" y="${PAD.top - 22}" fill="${pc}" font-size="14" font-weight="700" text-anchor="${anchor}">${esc(player.name)} · ${parse}</text>
       <rect x="${PAD.left}" y="0" width="${iw}" height="${H}" fill="transparent"/>
     </svg>`;

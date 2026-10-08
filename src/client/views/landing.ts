@@ -1,6 +1,6 @@
 import { esc } from "../format.ts";
 import type { RecentItem } from "../recent.ts";
-import { classColor, classIcon, TIER_STOPS, tierColor, zoneIcon } from "../wow.ts";
+import { classColor, classIcon, tierColor, zoneIcon } from "../wow.ts";
 import { img } from "./common.ts";
 
 /** Key visual: a bell curve of bars in the parse tier colors, like the analysis chart. */
@@ -28,14 +28,10 @@ export function renderHeroCurve(): string {
     return `${i ? "L" : "M"}${((i / 120) * W).toFixed(1)} ${(H - pdf(z) * (H - 8) - 4).toFixed(1)}`;
   }).join("");
   return `<svg viewBox="0 0 ${W} ${H + 1}" class="block h-auto w-full" aria-hidden="true">
-    ${bars}<line x1="0" x2="${W}" y1="${H + 0.5}" y2="${H + 0.5}" stroke="#2a2d3a"/>
+    ${bars}<line x1="0" x2="${W}" y1="${H + 0.5}" y2="${H + 0.5}" stroke="#3b2e22"/>
     <path class="draw" pathLength="1" d="${line}" fill="none" stroke="#fff" stroke-width="1.5" opacity=".5"/>
   </svg>`;
 }
-
-/** Thin bar in the parse tier colors. */
-export const renderTierStrip = () =>
-  `<div class="mx-auto mb-6 h-1 max-w-xs rounded-full opacity-70" style="background:linear-gradient(90deg, ${TIER_STOPS})"></div>`;
 
 export function renderRecent(items: RecentItem[]): string {
   if (!items.length) return "";

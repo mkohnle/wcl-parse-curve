@@ -51,9 +51,7 @@ function treeToggle(trees: TreeOption[], selected: number | null): string {
   const button = (id: number | null, label: string, share?: number, icon?: string | null) => {
     const on = id === selected;
     return `<button type="button" data-tree="${id ?? ""}" ${share === 0 ? "disabled" : ""}
-      class="flex items-center gap-1.5 rounded-sm border px-3 py-1 text-sm transition ${
-        on ? "border-gold/80 bg-gold/10 text-gold" : "border-line text-zinc-300 hover:border-zinc-500"
-      } disabled:cursor-not-allowed disabled:opacity-40">
+      class="btn ${on ? "btn-on" : ""} disabled:cursor-not-allowed disabled:opacity-40">
       ${icon ? img(talentIcon(icon), "size-5") : ""}${esc(label)}${share === undefined ? "" : ` <span class="text-zinc-500">${Math.round(share * 100)}%</span>`}
     </button>`;
   };

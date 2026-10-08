@@ -7,10 +7,11 @@
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   </head>
   <body class="min-h-screen font-sans text-zinc-200 antialiased">
-    <header class="sticky top-0 z-30 border-b border-white/10 bg-black/70 backdrop-blur">
+    <header class="site-header sticky top-0 z-30 backdrop-blur">
       <div class="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-        <a id="home" href="/" class="flex items-center gap-2 font-display text-xl font-bold uppercase tracking-wide text-gold">
-          <img src="/favicon.svg" alt="" width="28" height="28" class="size-7" />Logscope
+        <a id="home" href="/" class="flex items-center gap-3 font-display text-xl font-bold uppercase tracking-[0.12em]">
+          <span class="medallion"><img src="/favicon.svg" alt="" width="28" height="28" class="size-7" /></span>
+          <span class="metal-gold" style="color: var(--color-gold)">Logscope</span>
         </a>
       </div>
     </header>
@@ -64,7 +65,7 @@
 
     <div
       id="tooltip"
-      class="pointer-events-none fixed z-50 hidden rounded border border-line bg-black/90 px-3 py-2 text-sm shadow-xl backdrop-blur"
+      class="pointer-events-none fixed z-50 hidden rounded-sm border border-bronze/80 bg-panel/95 px-3 py-2 text-sm shadow-xl shadow-black/60 backdrop-blur"
     ></div>
     <script type="module" src="./main.ts"></script>
   </body>

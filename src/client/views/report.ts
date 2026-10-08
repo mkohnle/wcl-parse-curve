@@ -128,7 +128,7 @@ export function renderPlayers(
           <div class="text-2xl font-bold tabular-nums ${tierMetal(parse)}" style="color:${tierColor(parse)}">${parse}</div>
         </button>`;
     });
-    return `<div><div class="label mb-2">${title}</div><div class="space-y-2">${cards.join("")}</div></div>`;
+    return `<div><div class="group-bar">${title}</div><div class="space-y-2">${cards.join("")}</div></div>`;
   });
   return section(
     "2 · Pick a player",
@@ -151,6 +151,6 @@ export const renderPlayersSkeleton = () =>
 
 const section = (title: string, body: string) => `
   <section>
-    <h3 class="label mb-2">${title}</h3>
+    <h3 class="heading">${title}</h3>
     ${body}
   </section>`;

@@ -18,7 +18,7 @@ export function renderZoneSummary(z: CharacterZone): string {
   const keys = done.map((b) => b.keyLevel ?? 0);
   const label = (b: Boss) => `${esc(b.name)}${z.mythicPlus && b.keyLevel ? ` +${b.keyLevel}` : ""}`;
 
-  const stat = (title: string, value: string, hint: string, color = "#f4f4f5", sub = "") => `
+  const stat = (title: string, value: string, hint: string, color = "#f3efe8", sub = "") => `
     <div title="${hint}">
       <div class="label">${title}</div>
       <div class="text-3xl font-bold tabular-nums leading-tight" style="color:${color}">${value}</div>
