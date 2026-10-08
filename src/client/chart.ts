@@ -76,7 +76,12 @@ export function mountChart(
   const bars = bins
     .map((b, i) => {
       const color = tierColor((b.pLo + b.pHi) / 2);
-      return `<rect data-bar="${i}" x="${x(b.lo) + 1}" y="${y(b.count)}" width="${colW - 2}" height="${Math.max(0, baseY - y(b.count))}" rx="2" fill="${color}" opacity="${b.estimated ? 0.35 : 0.9}"/>`;
+      const box = `x="${x(b.lo) + 1}" y="${y(b.count)}" width="${colW - 2}" height="${Math.max(0, baseY - y(b.count))}" rx="2"`;
+      // status-bar look like the front page: tier color, shine on top, dark outline
+      return `<g data-bar="${i}" class="chart-bar" opacity="${b.estimated ? 0.4 : 1}">
+        <rect ${box} fill="${color}" opacity=".9"/>
+        <rect ${box} fill="url(#chart-gloss)" stroke="#000" stroke-opacity=".55" stroke-width=".75"/>
+      </g>`;
     })
     .join("");
 
@@ -107,8 +112,17 @@ export function mountChart(
 
   el.innerHTML = `
     <svg viewBox="0 0 ${W} ${H}" class="block h-auto w-full select-none">
-      <line x1="${PAD.left}" x2="${W - PAD.right}" y1="${baseY}" y2="${baseY}" stroke="#3b2e22"/>
+      <defs>
+        <linearGradient id="chart-gloss" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#fff" stop-opacity=".35"/>
+          <stop offset=".45" stop-color="#fff" stop-opacity="0"/>
+          <stop offset="1" stop-color="#000" stop-opacity=".3"/>
+        </linearGradient>
+      </defs>
       <g>${bars}</g>
+      <line x1="${PAD.left}" x2="${W - PAD.right}" y1="${baseY}" y2="${baseY}" stroke="#6b5232" stroke-width="2"/>
+      <line x1="${PAD.left}" x2="${W - PAD.right}" y1="${baseY - 1}" y2="${baseY - 1}" stroke="#e5cc80" stroke-opacity=".25"/>
+      ${[PAD.left, W - PAD.right].map((dx) => `<path d="M${dx} ${baseY - 3.5}l3.5 3.5-3.5 3.5-3.5-3.5z" fill="#e5cc80" stroke="#050302" stroke-width=".75"/>`).join("")}
       <path d="${path}" fill="none" stroke="#fff" stroke-width="1.5" stroke-dasharray="6 5" opacity=".55"/>
       ${tierMarks}
       ${ticks}
@@ -123,11 +137,17 @@ export function mountChart(
   const hoverLine = svg.querySelector("[data-hover]") as SVGLineElement;
   const bar = (i: number) => svg.querySelector(`[data-bar="${i}"]`);
   let active = -1;
+  /** The hovered bar springs up, its neighbors follow a little (see style.css). */
+  const highlight = (i: number, on: boolean) => {
+    bar(i)?.toggleAttribute("data-hot", on);
+    bar(i - 1)?.toggleAttribute("data-near", on);
+    bar(i + 1)?.toggleAttribute("data-near", on);
+  };
 
   const hide = () => {
     tooltip.classList.add("hidden");
     hoverLine.setAttribute("visibility", "hidden");
-    bar(active)?.removeAttribute("stroke");
+    highlight(active, false);
     active = -1;
   };
 
@@ -151,8 +171,8 @@ export function mountChart(
     }
 
     if (i !== active) {
-      bar(active)?.removeAttribute("stroke");
-      bar(i)?.setAttribute("stroke", "#fff");
+      highlight(active, false);
+      highlight(i, true);
       active = i;
       const b = bins[i];
       svg.style.cursor = b.example ? "pointer" : "default";

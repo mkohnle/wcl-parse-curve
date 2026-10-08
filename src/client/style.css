@@ -148,6 +148,46 @@
   }
 }
 
+/* chart bars: same spring as the front page; the chart sets data-hot / data-near itself */
+.chart-bar {
+  transform-box: fill-box;
+  transform-origin: bottom;
+  transition:
+    transform 0.35s cubic-bezier(0.3, 1.8, 0.5, 1),
+    filter 0.2s;
+}
+.chart-bar[data-hot] {
+  filter: brightness(1.35);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .chart-bar[data-hot] {
+    transform: scaleY(1.06);
+  }
+  .chart-bar[data-near] {
+    transform: scaleY(1.025);
+  }
+}
+
+/* front page bars: the hovered one springs up and brightens, its neighbors follow a little */
+.hero-bar {
+  transform-box: fill-box;
+  transform-origin: bottom;
+  transition:
+    transform 0.35s cubic-bezier(0.3, 1.8, 0.5, 1),
+    filter 0.2s;
+}
+.rise:hover .hero-bar {
+  filter: brightness(1.35);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .rise:hover .hero-bar {
+    transform: scaleY(1.12);
+  }
+  .rise:hover + .rise .hero-bar,
+  .rise:has(+ .rise:hover) .hero-bar {
+    transform: scaleY(1.05);
+  }
+}
 @keyframes rise {
   from {
     transform: scaleY(0);
