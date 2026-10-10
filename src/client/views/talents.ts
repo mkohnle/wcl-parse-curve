@@ -59,7 +59,7 @@ function treeBox(title: string, nodes: TalentNode[], chosen: Map<number, RioTale
         <a href="https://www.wowhead.com/spell=${entry.spell}" data-wowhead="spell=${entry.spell}" target="_blank" rel="noreferrer"
            class="absolute hover:z-10" style="left:${px(n.x, minX)}px;top:${px(n.y, minY)}px">
           <span class="block size-[36px] p-[2px] ${shape} transition hover:brightness-125" style="${clip}background:${frame}">
-            <img src="${talentIcon(entry.icon)}" alt="" loading="lazy" class="block size-full ${shape} ${look}" style="${clip}" />
+            <img src="${talentIcon(entry.icon)}" data-fallback="${talentIcon("inv_misc_questionmark")}" alt="" loading="lazy" class="block size-full ${shape} ${look}" style="${clip}" />
           </span>
           ${
             entry.maxRanks > 1
