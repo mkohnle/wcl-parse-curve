@@ -3,7 +3,6 @@ import { type CharacterLog, CURVE_METRICS, type CurveMetric, type Region } from 
 import { cached, DAY, MINUTE, peek, prime } from "../cache.ts";
 import { characterParams, HttpError, int, region, str } from "../http.ts";
 import { fetchRio } from "../raiderio.ts";
-import { talentTreeOf } from "../talent-trees.ts";
 import { fetchCharacter, fetchCharacterLogs, fetchRealms, type MythicPlusRuns } from "../wcl/characters.ts";
 import { ensureBudget } from "../wcl/client.ts";
 import { currentZones, getZones, zoneList } from "../wcl/zones.ts";
@@ -119,13 +118,4 @@ characters.get("/rio", async (req, res) => {
   );
   if (!profile) throw new HttpError(404, "Not on Raider.IO");
   res.json(profile);
-});
-
-/** A spec's full talent trees, from the bundled Raidbots data. */
-characters.get("/talent-tree", (req, res) => {
-  const tree = talentTreeOf(str(req.query.className), str(req.query.spec));
-  if (!tree) throw new HttpError(404, "Unknown spec");
-  // changes only with game patches (and a redeploy)
-  res.set("Cache-Control", "public, max-age=86400");
-  res.json(tree);
 });

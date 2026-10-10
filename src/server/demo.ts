@@ -160,6 +160,7 @@ export function demoRankingPage(q: DistributionQuery, page: number): RankingEntr
     amount: amountAtRank(b, first + i),
     log: null,
     tree: treeAt(first + i),
+    talents: [],
   }));
 }
 
@@ -232,6 +233,7 @@ export function demoFight(fightId: number): FightResponse | null {
         other: null,
         run: null,
         itemLevel: 320 + Math.floor(r() * 10),
+        talents: null,
       };
     }
 
@@ -256,6 +258,7 @@ export function demoFight(fightId: number): FightResponse | null {
       bracket: KEY_BRACKET,
       other: null,
       ...withRun(demoRun(role, r)),
+      talents: null,
     };
   });
 

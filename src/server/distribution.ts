@@ -1,4 +1,4 @@
-import type { DistributionQuery, DistributionResponse, LogRef } from "../shared/api.ts";
+import type { DistributionQuery, DistributionResponse, LogRef, TopTalents } from "../shared/api.ts";
 import { MAX_PAGE, PAGE_SIZE } from "../shared/leaderboard.ts";
 import { demoRankingPage, isDemoEncounter } from "./demo.ts";
 import { heroTreesOf } from "./hero-trees.ts";
@@ -58,5 +58,32 @@ export async function getDistribution(q: DistributionQuery): Promise<Distributio
     trees,
     heroTrees: heroTreesOf(q.className, q.spec),
     complete: last % PAGE_SIZE !== 0 || last < MAX_PAGE * PAGE_SIZE,
+    topTalents: topTalents([...pages].sort(([a], [b]) => a - b).flatMap(([, entries]) => entries)),
+  };
+}
+
+/** How many top players the pick rates count: overall, and per hero tree. */
+const TOP = 100;
+
+/**
+ * Talent pick rates of the best players, from the sampled entries in rank order: the top 100 overall,
+ * and per hero tree that tree's best 100 (up to 400 sampled entries, so rare trees still get a group).
+ */
+function topTalents(ranked: RankingEntry[]): TopTalents {
+  const rates = (list: RankingEntry[]) => {
+    const count = new Map<number, number>();
+    for (const e of list) for (const id of new Set(e.talents)) count.set(id, (count.get(id) ?? 0) + 1);
+    return {
+      players: list.length,
+      share: Object.fromEntries([...count].map(([id, n]) => [id, n / list.length])),
+    };
+  };
+  const known = ranked.filter((e) => e.talents.length);
+  const trees = [...new Set(known.map((e) => e.tree).filter((t) => t !== null))];
+  return {
+    ...rates(known.slice(0, TOP)),
+    byHeroTree: Object.fromEntries(
+      trees.map((t) => [t, rates(known.filter((e) => e.tree === t).slice(0, TOP))]),
+    ),
   };
 }

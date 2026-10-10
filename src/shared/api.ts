@@ -71,6 +71,8 @@ export interface Player {
   /** M+ only, else null */
   run: RunStats | null;
   itemLevel: number | null;
+  /** talents in this fight; M+ only (they come with the run stats), raid: see /api/fight-talents */
+  talents: FightTalent[] | null;
 }
 
 /** A player's result in one metric, from the fight's rankings. */
@@ -79,6 +81,12 @@ export interface MetricResult {
   parse: number;
   bracketParse: number | null;
   totalParses: number | null;
+}
+
+/** A talent taken in a fight: the talent entry and its rank. */
+export interface FightTalent {
+  id: number;
+  rank: number;
 }
 
 /** A player's stats over a whole M+ run. */
@@ -149,6 +157,18 @@ export interface DistributionResponse {
   heroTrees: HeroTree[];
   /** True if `points` reach the end of the leaderboard. */
   complete: boolean;
+  /** Talent pick rates among the top 100. */
+  topTalents: TopTalents;
+}
+
+/** How often the top players take each talent. */
+export interface TopTalents {
+  /** players with known talents */
+  players: number;
+  /** talent entry id -> share (0-1) */
+  share: Record<number, number>;
+  /** the same among the players of each hero tree, for the hero talents */
+  byHeroTree: Record<number, { players: number; share: Record<number, number> }>;
 }
 
 // ---------- characters ----------
@@ -314,7 +334,8 @@ export interface TalentNode {
   next: number[];
   /** hero tree id, 0 for class and spec nodes */
   heroTree: number;
-  entries: { spell: number; name: string; icon: string; passive: boolean; maxRanks: number }[];
+  /** id: the talent entry, as in WCL's talent lists */
+  entries: { id: number; spell: number; name: string; icon: string; passive: boolean; maxRanks: number }[];
 }
 
 /** A spec's class, spec and hero trees. */

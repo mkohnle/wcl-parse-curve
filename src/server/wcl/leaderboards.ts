@@ -9,6 +9,8 @@ export interface RankingEntry {
   log: LogRef | null;
   /** hero tree id, null if unknown */
   tree: number | null;
+  /** talent entry ids, empty if unknown */
+  talents: number[];
 }
 
 interface RawRanking {
@@ -53,6 +55,7 @@ export async function fetchRankingPage(q: DistributionQuery, page: number): Prom
   return (encounter.characterRankings.rankings ?? []).map((r) => ({
     amount: r.amount,
     tree: heroTreeOf((r.talents ?? []).map((t) => t.talentID)),
+    talents: (r.talents ?? []).map((t) => t.talentID),
     log: r.report?.code
       ? {
           name: r.name,

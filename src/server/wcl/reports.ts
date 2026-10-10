@@ -1,6 +1,7 @@
 import type {
   Fight,
   FightResponse,
+  FightTalent,
   Metric,
   MetricResult,
   Player,
@@ -102,9 +103,23 @@ interface RawSummary {
   deathEvents: { name: string }[];
   damageDone: { name: string; total: number }[];
   healingDone: { name: string; total: number }[];
-  playerDetails: Partial<
-    Record<RoleGroup, { name: string; maxItemLevel?: number; potionUse?: number; healthstoneUse?: number }[]>
-  >;
+  playerDetails: Partial<Record<RoleGroup, RawPlayerDetails[]>>;
+}
+interface RawPlayerDetails {
+  name: string;
+  maxItemLevel?: number;
+  potionUse?: number;
+  healthstoneUse?: number;
+  combatantInfo?: { talentTree?: { id: number; rank: number }[] };
+}
+
+/** Each player's talents from a Summary table. */
+function talentsByPlayer(summary: RawSummary): Map<string, FightTalent[]> {
+  return new Map(
+    Object.values(summary.playerDetails)
+      .flat()
+      .map((p) => [p.name, (p.combatantInfo?.talentTree ?? []).map(({ id, rank }) => ({ id, rank }))]),
+  );
 }
 /** Per kicked enemy spell, who kicked it how often. */
 type RawInterrupts = { entries?: { details?: { name: string; total: number }[] }[] };
@@ -148,15 +163,16 @@ export async function fetchFight(
 
   const stats =
     report.summary && report.kicks ? runStats(report.summary.data, report.kicks.data.entries) : null;
+  const talents = report.summary ? talentsByPlayer(report.summary.data) : null;
   const players = [
     ...toPlayers(dps, "tanks", "dps", hps),
     ...toPlayers(hps, "healers", "hps", dps),
     ...toPlayers(dps, "dps", "dps", hps),
   ].map((p) => {
-    if (!stats) return p;
+    if (!stats || !report.summary) return p;
     // in M+ bracketData is the key level; the item level comes with the run stats
     const run = stats(p.name);
-    return { ...p, run, itemLevel: run.itemLevel };
+    return { ...p, run, itemLevel: run.itemLevel, talents: talents?.get(p.name) ?? null };
   });
   // right after upload WCL can return rankings with every parse still 0
   if (players.every((p) => !p.parse && !p.bracketParse)) return null;
@@ -235,5 +251,23 @@ function toPlayers(
     other: otherOf(c.name),
     run: null,
     itemLevel: c.bracketData ?? null,
+    talents: null,
   }));
+}
+
+/** Every player's talents in a fight (1 point): raid fights don't load the Summary table otherwise. */
+export async function fetchFightTalents(
+  code: string,
+  fightId: number,
+): Promise<Record<string, FightTalent[]>> {
+  const data = await gql<{ reportData: { report: { summary: RawTable<RawSummary> } | null } }>(
+    `query FightTalents($code: String!, $fight: Int!) {
+      reportData { report(code: $code) { summary: table(fightIDs: [$fight], dataType: Summary) } }
+    }`,
+    { code, fight: fightId },
+    1,
+  );
+  const report = data.reportData.report;
+  if (!report) throw new HttpError(404, "Report not found");
+  return Object.fromEntries(talentsByPlayer(report.summary.data));
 }

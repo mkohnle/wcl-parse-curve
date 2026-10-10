@@ -1,14 +1,16 @@
-// Builds src/server/data/talent-trees.json (every spec's full talent trees) from Raidbots' talent data.
+// Builds src/client/data/talent-trees/<Class>-<Spec>.json (each spec's full talent trees) from Raidbots' data.
+// The client loads them as build files: fingerprinted names, cached for good, fresh after every change.
 // Run after major patches: pnpm update:talent-trees
 
-import { writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import type { TalentNode, TalentTree } from "../src/shared/api.ts";
 import { compactName } from "../src/shared/names.ts";
 
 const SOURCE = "https://www.raidbots.com/static/data/live/talents.json";
-const OUT = new URL("../src/server/data/talent-trees.json", import.meta.url);
+const OUT = new URL("../src/client/data/talent-trees/", import.meta.url);
 
 interface RawEntry {
+  id: number;
   type?: string;
   name?: string;
   spellId?: number;
@@ -42,6 +44,7 @@ const toNode = (n: RawNode): TalentNode | null => {
     e.spellId && e.name
       ? [
           {
+            id: e.id,
             spell: e.spellId,
             name: e.name,
             icon: e.icon ?? "inv_misc_questionmark",
@@ -72,5 +75,8 @@ for (const spec of specs) {
   };
 }
 
-writeFileSync(OUT, `${JSON.stringify(out)}\n`);
+mkdirSync(OUT, { recursive: true });
+for (const file of readdirSync(OUT)) rmSync(new URL(file, OUT));
+for (const [spec, tree] of Object.entries(out))
+  writeFileSync(new URL(`${spec}.json`, OUT), `${JSON.stringify(tree)}\n`);
 console.log(`${Object.keys(out).length} specs → ${OUT.pathname}`);

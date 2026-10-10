@@ -113,6 +113,8 @@ export function renderAnalysis(
   group: Player[],
   /** the #1 log, linked from the #1 stat */
   topLog: LogRef | null,
+  /** show the "Talents vs top 100" button */
+  talentCompare: boolean,
 ): string {
   // the log's parse; the curve is pinned to it
   const current = Math.floor(main.parse);
@@ -176,6 +178,7 @@ export function renderAnalysis(
                 : compact(curve.amountAtRank(1)),
             )}
           </div>
+          ${talentCompare ? `<button type="button" data-talent-compare class="btn w-full justify-center">Talents vs top 100</button>` : ""}
         </aside>
       </div>
       ${renderGroup(group, p.name)}

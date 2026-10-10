@@ -8,6 +8,7 @@ import type {
   DistributionQuery,
   DistributionResponse,
   FightResponse,
+  FightTalent,
   Realm,
   Region,
   ReportResponse,
@@ -55,6 +56,10 @@ export const getFight = memo((code: string, fight: number) =>
   getJson<FightResponse>("/api/fight", { code, fight }),
 );
 
+export const getFightTalents = memo((code: string, fight: number) =>
+  getJson<Record<string, FightTalent[]>>("/api/fight-talents", { code, fight }),
+);
+
 export const getDistribution = memo((q: DistributionQuery) =>
   getJson<DistributionResponse>("/api/distribution", { ...q, lite: q.lite ? 1 : 0 }),
 );
@@ -86,9 +91,12 @@ export const getRio = memo((name: string, realm: string, region: Region) =>
   getJson<RioProfile>("/api/rio", { name, realm, region }),
 );
 
-export const getTalentTree = memo((className: string, spec: string) =>
-  getJson<TalentTree>("/api/talent-tree", { className, spec }),
-);
+/** Each spec's full talent trees, built into fingerprinted files (cached for good, fresh after changes). */
+const talentTrees = import.meta.glob<TalentTree>("./data/talent-trees/*.json", { import: "default" });
+
+/** A spec's full talent trees, e.g. ("Warrior", "Arms"); null if unknown. */
+export const getTalentTree = (className: string, spec: string): Promise<TalentTree | null> =>
+  talentTrees[`./data/talent-trees/${className}-${spec}.json`]?.() ?? Promise.resolve(null);
 
 export const getCharacterLogs = memo(
   (

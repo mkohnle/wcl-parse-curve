@@ -7,8 +7,17 @@ import {
   type Player,
   type Region,
   type ReportResponse,
+  type TopTalents,
 } from "../../shared/api.ts";
-import { getCharacterLogs, getDistribution, getFight, getRealms, getReport } from "../api.ts";
+import {
+  getCharacterLogs,
+  getDistribution,
+  getFight,
+  getFightTalents,
+  getRealms,
+  getReport,
+  getTalentTree,
+} from "../api.ts";
 import { showBudget } from "../budget.ts";
 import { mountChart } from "../chart.ts";
 import { buildCurve } from "../curve.ts";
@@ -30,11 +39,15 @@ import {
   renderReportHeaderSkeleton,
   selectCard,
 } from "../views/report.ts";
+import { renderTalentCompare } from "../views/talents.ts";
+import { loadWowheadTooltips } from "../wowhead.ts";
 
 const { reportHead, fights: fightsEl, players: playersEl, analysis: analysisEl } = pageDom;
 
 let report: ReportResponse | null = null;
 let fight: FightResponse | null = null;
+/** Top-100 talents of the shown curve, for the comparison popup. */
+let topTalents: TopTalents | null = null;
 let shown: ReportRoute | null = null;
 /** Drops late responses from an old route. */
 let generation = 0;
@@ -278,7 +291,10 @@ async function showAnalysis(
     metrics,
     f.players,
     topLog,
+    // M+ fights bring the talents; raid ones load them on click
+    dist.topTalents.players >= 10 && (!isMythicPlus || Boolean(player.talents?.length)),
   );
+  topTalents = dist.topTalents;
   mountChart(analysisEl.querySelector("#chart") as HTMLElement, dom.tooltip, curve, player, shownParse, logs);
 }
 
@@ -351,6 +367,10 @@ analysisEl.addEventListener("click", async (e) => {
     navigate({ ...shown, tree: Number(treeButton.dataset.tree) || null });
     return;
   }
+  if (target.closest("[data-talent-compare]")) {
+    await openTalentCompare();
+    return;
+  }
   const metricButton = target.closest<HTMLElement>("[data-metric]");
   if (metricButton && shown) {
     const m = metricButton.dataset.metric as CurveMetric | "";
@@ -359,6 +379,33 @@ analysisEl.addEventListener("click", async (e) => {
   }
   if (target.closest("[data-character]")) await openCharacter();
 });
+
+/** The shown player's build in this fight against the top 100 (raid: 1 point per fight for the talents). */
+async function openTalentCompare() {
+  const player = fight?.players.find((p) => p.name === shown?.player);
+  const route = shown;
+  const top = topTalents;
+  if (!player || !route?.fight || !top) return;
+  const show = (html: string) => {
+    const open = document.querySelector("[data-talents-popup]");
+    if (open) open.outerHTML = html;
+    else document.body.insertAdjacentHTML("beforeend", html);
+  };
+  show(renderTalentCompare(player.className, player.spec, [], top, undefined));
+  loadWowheadTooltips();
+  try {
+    const [picks, tree] = await Promise.all([
+      player.talents ?? getFightTalents(route.code, route.fight).then((all) => all[player.name] ?? []),
+      getTalentTree(player.className, player.spec).catch(() => null),
+    ]);
+    // closed in the meantime
+    if (!document.querySelector("[data-talents-popup]")) return;
+    show(renderTalentCompare(player.className, player.spec, picks, top, tree));
+  } catch (e) {
+    document.querySelector("[data-talents-popup]")?.remove();
+    setStatus(errorMessage(e), true);
+  }
+}
 
 /** The player's name: open their character page. */
 async function openCharacter() {

@@ -4,7 +4,7 @@ import { cached, DAY, HOUR, MINUTE, peek, prime } from "../cache.ts";
 import { demoFight, demoReport, isDemoCode } from "../demo.ts";
 import { HttpError, int, str } from "../http.ts";
 import { ensureBudget } from "../wcl/client.ts";
-import { fetchFight, fetchReport, fightCost } from "../wcl/reports.ts";
+import { fetchFight, fetchFightTalents, fetchReport, fightCost } from "../wcl/reports.ts";
 
 export const reports = Router();
 
@@ -71,4 +71,18 @@ reports.get("/fight", async (req, res) => {
       "No rankings for this fight yet. Warcraft Logs ranks fights a few minutes after upload; reload then.",
     );
   res.json(fight);
+});
+
+/** Every player's talents in a raid fight (M+ fights already have them), 1 point per fight. */
+reports.get("/fight-talents", async (req, res) => {
+  const code = str(req.query.code);
+  const fightId = int(req.query.fight);
+  if (!isReportCode(code) || !fightId) throw new HttpError(400, "Invalid parameters");
+  const { endTime } = await getReport(code);
+  res.json(
+    await cached(`talents|${code}|${fightId}`, isRecent(endTime) ? 10 * MINUTE : DAY, async () => {
+      await ensureBudget(1);
+      return fetchFightTalents(code, fightId);
+    }),
+  );
 });
