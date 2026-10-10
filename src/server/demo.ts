@@ -196,6 +196,9 @@ function demoRun(role: Role, r: () => number): RunStats {
   };
 }
 
+/** M+: the item level comes with the run stats, like in real fights. */
+const withRun = (run: RunStats) => ({ run, itemLevel: run.itemLevel });
+
 export function demoFight(fightId: number): FightResponse | null {
   const fight = demoReport.fights.find((f) => f.id === fightId);
   if (!fight) return null;
@@ -228,6 +231,7 @@ export function demoFight(fightId: number): FightResponse | null {
         bracket: null,
         other: null,
         run: null,
+        itemLevel: 320 + Math.floor(r() * 10),
       };
     }
 
@@ -251,7 +255,7 @@ export function demoFight(fightId: number): FightResponse | null {
       region: null,
       bracket: KEY_BRACKET,
       other: null,
-      run: demoRun(role, r),
+      ...withRun(demoRun(role, r)),
     };
   });
 

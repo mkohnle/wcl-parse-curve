@@ -75,6 +75,8 @@ interface RawCharacterRanking {
   rank?: number | string;
   server?: { name: string; region: string };
   bracket?: number;
+  /** raid: the player's item level (M+: the key level) */
+  bracketData?: number;
 }
 
 interface RawFightRanking {
@@ -150,7 +152,12 @@ export async function fetchFight(
     ...toPlayers(dps, "tanks", "dps", hps),
     ...toPlayers(hps, "healers", "hps", dps),
     ...toPlayers(dps, "dps", "dps", hps),
-  ].map((p) => (stats ? { ...p, run: stats(p.name) } : p));
+  ].map((p) => {
+    if (!stats) return p;
+    // in M+ bracketData is the key level; the item level comes with the run stats
+    const run = stats(p.name);
+    return { ...p, run, itemLevel: run.itemLevel };
+  });
   // right after upload WCL can return rankings with every parse still 0
   if (players.every((p) => !p.parse && !p.bracketParse)) return null;
   return {
@@ -227,5 +234,6 @@ function toPlayers(
     region: c.server?.region ?? null,
     other: otherOf(c.name),
     run: null,
+    itemLevel: c.bracketData ?? null,
   }));
 }

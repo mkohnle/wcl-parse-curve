@@ -70,6 +70,7 @@ export interface Player {
   other: MetricResult | null;
   /** M+ only, else null */
   run: RunStats | null;
+  itemLevel: number | null;
 }
 
 /** A player's result in one metric, from the fight's rankings. */
