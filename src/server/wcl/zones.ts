@@ -1,4 +1,5 @@
 import type { ZoneList } from "../../shared/api.ts";
+import { cached, HOUR } from "../cache.ts";
 import { gql } from "./client.ts";
 
 export interface Zone {
@@ -63,4 +64,16 @@ export function zoneList(zones: { raid: Zone[]; mythicPlus: Zone[] }): ZoneList 
     mythicPlus: zones.mythicPlus.map(({ id, name }) => ({ id, name, difficulties: [] })),
     current: { raid: current.raid?.id ?? 0, mythicPlus: current.mythicPlus?.id ?? 0 },
   };
+}
+
+/** The zone list, cached (about 1 point when it isn't). */
+export const getZones = () => cached("zones", 6 * HOUR, fetchZones);
+
+/** True if the encounter belongs to a finished raid or season, whose rankings no longer change. */
+export async function isFrozenEncounter(encounterId: number): Promise<boolean> {
+  const all = await getZones().catch(() => null);
+  const zone = [...(all?.raid ?? []), ...(all?.mythicPlus ?? [])].find((z) =>
+    z.encounters.some((e) => e.id === encounterId),
+  );
+  return zone?.frozen ?? false;
 }

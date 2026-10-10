@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { CURVE_METRICS, type CurveMetric, type DistributionQuery } from "../../shared/api.ts";
-import { cached, HOUR } from "../cache.ts";
+import { cached, DAY, HOUR } from "../cache.ts";
 import { getDistribution } from "../distribution.ts";
 import { HttpError, int, str } from "../http.ts";
+import { isFrozenEncounter } from "../wcl/zones.ts";
 
 export const leaderboards = Router();
 
@@ -36,5 +37,7 @@ leaderboards.get("/distribution", async (req, res) => {
     q.className,
     q.spec,
   ].join("|");
-  res.json(await cached(key, 6 * HOUR, () => getDistribution(q)));
+  // finished raids and seasons no longer change
+  const ttl = (await isFrozenEncounter(q.encounterId)) ? 7 * DAY : 6 * HOUR;
+  res.json(await cached(key, ttl, () => getDistribution(q)));
 });

@@ -1,12 +1,12 @@
 import { Router } from "express";
 import { type CharacterLog, CURVE_METRICS, type CurveMetric, type Region } from "../../shared/api.ts";
-import { cached, DAY, HOUR, MINUTE, prime } from "../cache.ts";
+import { cached, DAY, MINUTE, prime } from "../cache.ts";
 import { characterParams, HttpError, int, region, str } from "../http.ts";
 import { fetchRio } from "../raiderio.ts";
 import { talentTreeOf } from "../talent-trees.ts";
 import { fetchCharacter, fetchCharacterLogs, fetchRealms } from "../wcl/characters.ts";
 import { ensureBudget } from "../wcl/client.ts";
-import { currentZones, fetchZones, zoneList } from "../wcl/zones.ts";
+import { currentZones, getZones, zoneList } from "../wcl/zones.ts";
 
 export const characters = Router();
 
@@ -31,7 +31,7 @@ characters.get("/realms", async (req, res) => {
   );
 });
 
-const zones = () => cached("zones", 6 * HOUR, fetchZones);
+const zones = getZones;
 
 /** Raids and M+ seasons of the last two expansions. */
 characters.get("/zones", async (_req, res) => {
