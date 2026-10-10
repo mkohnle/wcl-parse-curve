@@ -53,7 +53,7 @@ function talentsButton(p: RioProfile): string {
   const hero = p.talentTree.filter((t) => t.tree === "hero");
   const emblem = hero.length ? hero.reduce((a, b) => (b.y < a.y ? b : a)) : null;
   return `
-    <button type="button" data-show-talents class="btn ml-auto border-gold/50 py-1.5 pr-4 pl-1.5 text-gold">
+    <button type="button" data-show-talents class="btn btn-talents ml-auto py-1.5 pr-4 pl-1.5">
       ${emblem ? img(talentIcon(emblem.icon), "size-7 rounded-full border border-gold/60") : ""}
       Talents
     </button>`;
