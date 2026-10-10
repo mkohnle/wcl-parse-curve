@@ -62,6 +62,8 @@ let fight: FightResponse | null = null;
 let compare: {
   player: Player;
   parse: number;
+  /** the player's amount in the shown metric */
+  amount: number;
   metric: Metric;
   curve: Curve;
   /** leaderboard logs behind the curve, with their hero tree */
@@ -323,12 +325,13 @@ async function showAnalysis(
     topLog,
     // M+ fights bring the talents; raid ones load them on click
     dist.topTalents.players >= 10 && (!isMythicPlus || Boolean(player.talents?.length)),
-    compareTargets(compareLogs, curve, shownParse.parse).length > 0,
+    compareTargets(compareLogs, curve, shownParse.amount).length > 0,
   );
   topTalents = dist.topTalents;
   compare = {
     player,
     parse: shownParse.parse,
+    amount: shownParse.amount,
     metric: shownParse.metric === "hps" ? "hps" : "dps",
     curve,
     logs: compareLogs,
@@ -449,12 +452,13 @@ const COMPARE_TIERS = [99, 95, 90, 75];
  * Better logs to compare with, from the leaderboard logs behind the curve: the best one, and the closest
  * at each tier above the player's parse. Lowest first.
  */
-function compareTargets(logs: CompareLog[], curve: Curve, yourParse: number): CompareTarget[] {
+function compareTargets(logs: CompareLog[], curve: Curve, yourAmount: number): CompareTarget[] {
   const out: CompareTarget[] = [];
   const add = (label: string, e: CompareLog | undefined) => {
     if (!e || out.some((t) => t.log.code === e.log.code && t.log.fight === e.log.fight)) return;
     const parse = curve.percentileOf(e.amount);
-    if (parse > yourParse) out.push({ log: e.log, label, parse, amount: e.amount, tree: e.tree });
+    // better means more damage (or healing); parses would mix WCL's whole numbers with the curve's
+    if (e.amount > yourAmount) out.push({ log: e.log, label, parse, amount: e.amount, tree: e.tree });
   };
   add(`#${logs[0]?.rank}`, logs[0]);
   for (const tier of COMPARE_TIERS) {
@@ -510,9 +514,9 @@ async function openLogCompare(index = 0) {
           : compareTargets(
               c.logs.filter((l) => l.tree === you),
               c.curve,
-              c.parse,
+              c.amount,
             );
-      c.targets = same.length ? same : compareTargets(c.logs, c.curve, c.parse);
+      c.targets = same.length ? same : compareTargets(c.logs, c.curve, c.amount);
     }
     const targets = c.targets;
     const selected = targets[index] ?? targets[0];

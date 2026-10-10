@@ -99,20 +99,20 @@
   .btn:not(:disabled):hover {
     @apply border-gold/60 text-zinc-100;
   }
-  /* the talents button: framed like the toggles, a subtle red on hover */
-  .btn-talents {
+  /* accent buttons (talents, comparisons): framed like the toggles, a subtle red on hover */
+  .btn-accent {
     @apply border-gold/60 text-gold;
     box-shadow:
       inset 0 1px 0 rgb(255 255 255 / 0.06),
       0 0 0 1px #050302;
   }
   /* gradients can't fade, so the red sits on a layer behind the content and fades in */
-  .btn-talents {
+  .btn-accent {
     position: relative;
     isolation: isolate;
     transition: border-color 0.35s;
   }
-  .btn-talents::before {
+  .btn-accent::before {
     content: "";
     position: absolute;
     inset: 0;
@@ -122,10 +122,10 @@
     opacity: 0;
     transition: opacity 0.35s;
   }
-  .btn-talents:not(:disabled):hover {
+  .btn-accent:not(:disabled):hover {
     @apply border-gold/80 text-gold;
   }
-  .btn-talents:not(:disabled):hover::before {
+  .btn-accent:not(:disabled):hover::before {
     opacity: 1;
   }
   .btn-on {

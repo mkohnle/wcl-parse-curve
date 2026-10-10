@@ -1,5 +1,6 @@
 import type { Breakdown, Metric } from "../../shared/api.ts";
 import { HttpError } from "../http.ts";
+import { spellInfo } from "../spell-classes.ts";
 import { gql } from "./client.ts";
 
 // One player's fight, ability by ability: what the log comparison is built from.
@@ -14,8 +15,12 @@ interface RawTable {
   data: { totalTime: number; entries: RawEntry[] };
 }
 interface RawPlayers {
-  data: { totalTime: number; entries: { name: string; id: number; activeTime?: number }[] };
+  /** type: the class, e.g. "DeathKnight" */
+  data: { totalTime: number; entries: { name: string; id: number; type: string; activeTime?: number }[] };
 }
+
+/** Seconds of cooldown from which a class spell counts as a cooldown (Colossus Smash: 45). */
+const MIN_COOLDOWN = 45;
 
 /** About 3 points: the fight's player list (ids, active time), then the player's casts and damage or healing. */
 export async function fetchBreakdown(
@@ -66,6 +71,23 @@ export async function fetchBreakdown(
   };
   for (const e of casts.data.entries) ability(e).casts += e.total;
   for (const e of amount.data.entries) ability(e).amount += e.total;
+
+  // the player's real cooldowns (class spells with a long cooldown) and consumables, apart from
+  // spammed spells, utility and dungeon mechanics
+  await Promise.all(
+    [...abilities.values()]
+      .filter((a) => a.casts > 0)
+      .map(async (a) => {
+        // combat potions; health potions and healthstones aren't a choice worth comparing
+        if (/potion/i.test(a.name) && !/heal/i.test(a.name)) {
+          a.kind = "consumable";
+          return;
+        }
+        const info = await spellInfo(a.id).catch(() => null);
+        const ownClass = info?.className?.replace(/ /g, "") === player.type;
+        a.kind = ownClass && (info?.cooldown ?? 0) >= MIN_COOLDOWN ? "cooldown" : "other";
+      }),
+  );
 
   return {
     name,

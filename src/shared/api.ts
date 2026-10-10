@@ -359,5 +359,13 @@ export interface Breakdown {
   /** damage or healing in total */
   amount: number;
   /** best first */
-  abilities: { id: number; name: string; icon: string; casts: number; amount: number }[];
+  abilities: {
+    id: number;
+    name: string;
+    icon: string;
+    casts: number;
+    amount: number;
+    /** cast spells: a class cooldown (45 sec or more), a combat potion, or anything else */
+    kind?: "cooldown" | "consumable" | "other";
+  }[];
 }

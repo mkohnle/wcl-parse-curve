@@ -68,6 +68,12 @@ function treeToggle(trees: TreeOption[], selected: number | null): string {
     </div>`;
 }
 
+/** A framed button with an icon, for the extra views (comparisons). */
+const accentButton = (data: string, icon: string, label: string) =>
+  `<button type="button" ${data} class="btn btn-accent w-full py-1.5 pr-4 pl-1.5">
+    ${img(icon, "size-7 rounded-full border border-gold/60")}<span class="flex-1 text-center">${label}</span>
+  </button>`;
+
 /** Curve metric switch; the player's own metric first. Empty without options. */
 function metricToggle(metrics: CurveMetric[], own: CurveMetric, selected: CurveMetric): string {
   if (metrics.length < 2) return "";
@@ -180,8 +186,8 @@ export function renderAnalysis(
                 : compact(curve.amountAtRank(1)),
             )}
           </div>
-          ${logCompare ? `<button type="button" data-log-compare class="btn w-full justify-center">Compare with a better log</button>` : ""}
-          ${talentCompare ? `<button type="button" data-talent-compare class="btn w-full justify-center">Talents vs top 100</button>` : ""}
+          ${logCompare ? accentButton("data-log-compare", talentIcon("inv_misc_spyglass_02"), "Compare with a better log") : ""}
+          ${talentCompare ? accentButton("data-talent-compare", specIcon(p.className, p.spec), "Talents vs top 100") : ""}
         </aside>
       </div>
       ${renderGroup(group, p.name)}

@@ -128,24 +128,27 @@ function activity(me: Breakdown, them: Breakdown, theirName: string): string {
     </div>`;
 }
 
-/** The biggest gaps as tiles: icon, the per-second gap large, casts below. */
+/** The biggest gaps as tiles (icon, the per-second gap large, casts below), and where you're furthest ahead. */
 function tiles(me: Breakdown, them: Breakdown, metric: Metric): string {
   const total = perSecond(them, them.amount);
-  const worst = abilityGaps(me, them)
-    .filter((g) => -g.gap >= MIN_GAP * total)
+  const gaps = abilityGaps(me, them).filter((g) => Math.abs(g.gap) >= MIN_GAP * total);
+  const best = gaps.filter((g) => g.gap > 0).sort((a, b) => b.gap - a.gap)[0];
+  const worst = gaps
+    .filter((g) => g.gap < 0)
     .sort((a, b) => a.gap - b.gap)
-    .slice(0, 3);
-  if (!worst.length) return "";
+    .slice(0, best ? 2 : 3);
+  const shown = best ? [...worst, best] : worst;
+  if (!shown.length) return "";
   return `
     <div class="grid gap-3 sm:grid-cols-3">
-      ${worst
+      ${shown
         .map(
           ({ ability, m, t, gap }) => `
             <div class="flex items-center gap-3 rounded-sm border border-line bg-black/20 p-3">
               ${icon(ability, "size-10")}
               <div class="min-w-0">
                 <div class="truncate text-sm text-zinc-200">${esc(ability.name)}</div>
-                <div class="text-xl font-bold tabular-nums" style="color:${BEHIND}">${signed(gap)} ${metric.toUpperCase()}</div>
+                <div class="text-xl font-bold tabular-nums" style="color:${gap < 0 ? BEHIND : AHEAD}">${signed(gap)} ${metric.toUpperCase()}</div>
                 ${t?.casts || m?.casts ? `<div class="text-xs tabular-nums text-zinc-500">${m?.casts ?? 0} vs ${t?.casts ?? 0} casts</div>` : ""}
               </div>
             </div>`,
@@ -194,7 +197,73 @@ function gapChart(me: Breakdown, them: Breakdown, metric: Metric): string {
     </div>`;
 }
 
-/** Mirrored bars per ability: yours to the left, theirs to the right, same scale. */
+/** Cooldowns and consumables shown: those with the biggest difference first. */
+const COOLDOWN_ROWS = 8;
+
+/**
+ * Cooldowns (class spells with 45 sec or more) and combat potions, by casts. The biggest differences first,
+ * behind or ahead; the rate per 5 minutes is in the hover.
+ */
+function cooldowns(me: Breakdown, them: Breakdown, theirName: string): string {
+  const per5 = (b: Breakdown, casts: number) => perMinute(b, casts) * 5;
+  const byName = (b: Breakdown) => new Map(b.abilities.map((a) => [a.name, a]));
+  const mine = byName(me);
+  const theirs = byName(them);
+  // the better player's cooldowns and consumables (the kind of either side, by name)
+  const rows = [...theirs.values()]
+    .filter((t) => {
+      const kind = t.kind ?? mine.get(t.name)?.kind;
+      return t.casts > 0 && (kind === "cooldown" || kind === "consumable");
+    })
+    .map((t) => {
+      const m = mine.get(t.name);
+      return {
+        ability: t,
+        mine: m?.casts ?? 0,
+        theirs: t.casts,
+        // by casts, like the bars: equal counts are even
+        gap: t.casts - (m?.casts ?? 0),
+      };
+    })
+    // the biggest differences, behind or ahead
+    .sort((a, b) => Math.abs(b.gap) - Math.abs(a.gap))
+    .slice(0, COOLDOWN_ROWS);
+  if (!rows.length) return "";
+  return `
+    <details>
+      <summary class="label cursor-pointer select-none hover:text-zinc-300">Cooldowns and consumables</summary>
+      <div class="mt-3 mb-2 flex justify-end">${legend([
+        [YOU, "You"],
+        [THEM, theirName],
+      ])}</div>
+      <div class="space-y-2">
+        ${rows
+          .map(({ ability, mine, theirs, gap }) => {
+            const a = per5(me, mine);
+            const b = per5(them, theirs);
+            // behind or ahead, by the rate; nothing when about even
+            const mark =
+              gap === 0
+                ? ""
+                : `<span class="shrink-0 text-xs" style="color:${gap > 0 ? BEHIND : AHEAD}">${gap > 0 ? "▼" : "▲"}</span>`;
+            const max = Math.max(mine, theirs, 1);
+            const bar = (casts: number, color: string) => `
+              <div class="flex items-center gap-2">
+                <div class="h-2 rounded-r" style="width:${Math.max(1, (casts / max) * 85)}%;background:${color}"></div>
+                <span class="shrink-0 text-xs tabular-nums text-zinc-300">${casts}</span>
+              </div>`;
+            return `
+              <div class="grid grid-cols-[11rem_1fr] items-center gap-3" title="${esc(ability.name)}: ${mine} vs ${theirs} casts (${a.toFixed(1)} vs ${b.toFixed(1)} per 5 min)">
+                <div class="flex min-w-0 items-center gap-2">${icon(ability)}<span class="truncate text-sm text-zinc-300">${esc(ability.name)}</span>${mark}</div>
+                <div class="space-y-0.5">${bar(mine, YOU)}${bar(theirs, THEM)}</div>
+              </div>`;
+          })
+          .join("")}
+      </div>
+    </details>`;
+}
+
+/** Mirrored bars per ability (per second): yours to the left, theirs to the right, same scale. */
 function mirror(me: Breakdown, them: Breakdown, theirName: string, metric: Metric): string {
   const mine = new Map(me.abilities.map((a) => [a.name, a]));
   const rows = them.abilities.filter((a) => a.amount > 0).slice(0, ROWS);
@@ -203,7 +272,8 @@ function mirror(me: Breakdown, them: Breakdown, theirName: string, metric: Metri
     perSecond(me, mine.get(t.name)?.amount ?? 0),
   ]);
   const max = Math.max(...values, 1);
-  const unit = metric.toUpperCase();
+  // the bars show per second; hover shows the whole fight
+  const total = metric === "hps" ? "healing" : "damage";
   return `
     <div>
       ${heading(
@@ -216,10 +286,11 @@ function mirror(me: Breakdown, them: Breakdown, theirName: string, metric: Metri
       <div class="space-y-1">
         ${rows
           .map((t) => {
-            const yours = perSecond(me, mine.get(t.name)?.amount ?? 0);
+            const m = mine.get(t.name);
+            const yours = perSecond(me, m?.amount ?? 0);
             const theirs = perSecond(them, t.amount);
             return `
-              <div class="grid grid-cols-[1fr_2rem_1fr] items-center gap-2" title="${esc(t.name)}: ${compact(yours)} vs ${compact(theirs)} ${unit}">
+              <div class="grid grid-cols-[1fr_2rem_1fr] items-center gap-2" title="${esc(t.name)}: ${compact(m?.amount ?? 0)} vs ${compact(t.amount)} ${total}">
                 <div class="flex items-center justify-end gap-2">
                   <span class="text-xs tabular-nums text-zinc-400">${compact(yours)}</span>
                   <div class="h-3 rounded-l" style="width:${(yours / max) * 85}%;background:${YOU}"></div>
@@ -311,6 +382,7 @@ export function renderLogCompare(
           ${activity(me, them, them.name)}
           ${gapChart(me, them, metric)}
           ${mirror(me, them, them.name, metric)}
+          ${cooldowns(me, them, them.name)}
           ${numbers(me, them)}
         </div>`;
   return `
