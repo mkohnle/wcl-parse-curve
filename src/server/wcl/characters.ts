@@ -83,12 +83,12 @@ interface RawCharacter {
   zone?: RawZoneRankings;
 }
 
-/** M+ runs per dungeon, fetched with the character so opening a dungeon costs nothing. */
-type MythicPlusRuns = Map<number, { metric: Metric; logs: CharacterLog[] }>;
+/** M+ runs per dungeon, fetched with the character so opening a dungeon costs nothing. kills: as of then. */
+export type MythicPlusRuns = Map<number, { metric: Metric; kills: number; logs: CharacterLog[] }>;
 
 /**
  * Best and median parse per boss in one zone (the current raid or M+ season).
- * Costs 1 point (2 for classes that heal), plus 1 per M+ dungeon played.
+ * Raid: 1 point (2 for classes that heal). M+: 5 (10), plus 1 per dungeon played; a refresh only for dungeons with new kills.
  */
 export async function fetchCharacter(
   name: string,
@@ -98,6 +98,8 @@ export async function fetchCharacter(
   mythicPlus: boolean,
   /** raid difficulty; null = the one WCL picks (the highest with kills) */
   difficulty: number | null = null,
+  /** M+ runs from the last load: dungeons without new kills reuse them instead of costing a point each */
+  previous: MythicPlusRuns | null = null,
 ): Promise<{ character: CharacterResponse; runs: MythicPlusRuns }> {
   // healing classes also get hps parses; each boss then uses the metric of the spec played
   const dps = await query("dps");
@@ -112,16 +114,26 @@ export async function fetchCharacter(
     zone: zone && dps.zone ? toZone(zone, mythicPlus, className, dps.zone, hps?.zone) : null,
   };
 
-  // M+: best and median only from the highest key level, so fetch every run
+  // M+: best and median only from the highest key level, so fetch every run;
+  // a dungeon with the same kills (and metric) as last time has the same runs
   const played = mythicPlus ? (character.zone?.bosses.filter((b) => b.kills > 0) ?? []) : [];
-  const runs: MythicPlusRuns = played.length
+  const unchanged = (b: (typeof played)[number]) => {
+    const p = previous?.get(b.encounterId);
+    return p !== undefined && p.kills === b.kills && p.metric === b.metric;
+  };
+  const changed = played.filter((b) => !unchanged(b));
+  const runs: MythicPlusRuns = changed.length
     ? await fetchRuns(
         name,
         realm,
         region,
-        played.map((b) => ({ id: b.encounterId, metric: b.metric })),
+        changed.map((b) => ({ id: b.encounterId, metric: b.metric, kills: b.kills })),
       )
     : new Map();
+  for (const b of played) {
+    const p = previous?.get(b.encounterId);
+    if (p && unchanged(b)) runs.set(b.encounterId, p);
+  }
   for (const b of played) {
     const logs = runs.get(b.encounterId)?.logs ?? [];
     const keyLevel = Math.max(...logs.map((l) => l.bracket));
@@ -223,7 +235,7 @@ async function fetchRuns(
   name: string,
   realm: string,
   region: Region,
-  dungeons: { id: number; metric: Metric }[],
+  dungeons: { id: number; metric: Metric; kills: number }[],
 ): Promise<MythicPlusRuns> {
   const fields = dungeons
     .map((d) => `d${d.id}: encounterRankings(encounterID: ${d.id}, metric: ${d.metric}, byBracket: true)`)
@@ -238,7 +250,9 @@ async function fetchRuns(
     dungeons.length,
   );
   const c = data.characterData.character;
-  return new Map(dungeons.map((d) => [d.id, { metric: d.metric, logs: toLogs(c?.[`d${d.id}`]?.ranks) }]));
+  return new Map(
+    dungeons.map((d) => [d.id, { metric: d.metric, kills: d.kills, logs: toLogs(c?.[`d${d.id}`]?.ranks) }]),
+  );
 }
 
 /** A character's logs on one boss, newest first. byKeyLevel: M+ parses within the key level. */
