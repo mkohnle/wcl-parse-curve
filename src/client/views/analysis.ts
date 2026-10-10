@@ -142,7 +142,7 @@ export function renderAnalysis(
     ? `Among ${esc(tree.name)} players only, estimated.`
     : curve.exactRanks >= curve.total
       ? `All ${fmt(curve.total)} parses.`
-      : `Top ${fmt(curve.exactRanks)} of ${fmt(curve.total)} real, rest estimated.`;
+      : `Top ${fmt(curve.exactRanks)} of ${fmt(curve.total)}, data below is estimated.`;
 
   return `
     <section class="panel overflow-hidden">

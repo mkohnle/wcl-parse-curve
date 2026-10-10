@@ -45,30 +45,8 @@ function memo<A extends unknown[], T>(fn: (...args: A) => Promise<T>): (...args:
   };
 }
 
-const ADMIN_KEY = "adminToken";
-
-/** Store a token from ?admin=… once and drop it from the URL. */
-export function captureAdminToken() {
-  const url = new URL(location.href);
-  const token = url.searchParams.get("admin");
-  if (!token) return;
-  try {
-    localStorage.setItem(ADMIN_KEY, token);
-  } catch {}
-  url.searchParams.delete("admin");
-  history.replaceState(null, "", url);
-}
-
-const adminToken = () => {
-  try {
-    return localStorage.getItem(ADMIN_KEY) ?? "";
-  } catch {
-    return "";
-  }
-};
-
-/** Admin only (404 otherwise). Not memoized: the budget changes with every lookup. */
-export const getBudget = () => getJson<Budget | null>("/api/budget", {}, { "x-admin-token": adminToken() });
+/** Dev only. Not memoized: the budget changes with every lookup. */
+export const getBudget = () => getJson<Budget | null>("/api/budget", {});
 
 /** Not memoized: a recent log can gain fights at any time. */
 export const getReport = (code: string) => getJson<ReportResponse>("/api/report", { code });

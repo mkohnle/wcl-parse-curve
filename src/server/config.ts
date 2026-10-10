@@ -8,8 +8,6 @@ export const config = {
   // optional: without them only the demo works
   wclClientId: process.env.WCL_CLIENT_ID ?? "",
   wclClientSecret: process.env.WCL_CLIENT_SECRET ?? "",
-  // optional: shows the API budget to whoever has it (see /?admin=…)
-  adminToken: process.env.ADMIN_TOKEN ?? "",
 };
 
 export const hasWclCredentials = () => Boolean(config.wclClientId && config.wclClientSecret);

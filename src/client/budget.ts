@@ -1,8 +1,9 @@
 import { getBudget } from "./api.ts";
 import { dom } from "./dom.ts";
 
-/** API points left, in the footer. Admins only: others get no data and see nothing. */
+/** API points left, in the footer. A dev tool: left out of the production build. */
 export async function showBudget() {
+  if (!import.meta.env.DEV) return;
   const b = await getBudget().catch(() => null);
   if (!b) {
     dom.budget.textContent = "";

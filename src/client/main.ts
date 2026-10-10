@@ -3,7 +3,6 @@ import "./pages/landing.ts";
 import "./pages/report.ts";
 import "./pages/character.ts";
 import "./search.ts";
-import { captureAdminToken } from "./api.ts";
 import { navigate, startRouter } from "./router.ts";
 
 // home link: switch pages instead of reloading (ctrl/middle click still open a new tab)
@@ -30,5 +29,4 @@ document.addEventListener(
   true,
 );
 
-captureAdminToken();
 startRouter();
