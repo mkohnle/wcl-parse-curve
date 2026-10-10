@@ -11,6 +11,7 @@ import type {
   Realm,
   Region,
   ReportResponse,
+  RioProfile,
 } from "../shared/api.ts";
 
 async function getJson<T>(
@@ -82,6 +83,10 @@ export const getRealms = memo((region: Region) => getJson<Realm[]>("/api/realms"
 
 export const getCharacter = memo((name: string, realm: string, region: Region, section: CharacterSection) =>
   getJson<CharacterResponse>("/api/character", { name, realm, region, section }),
+);
+
+export const getRio = memo((name: string, realm: string, region: Region) =>
+  getJson<RioProfile>("/api/rio", { name, realm, region }),
 );
 
 export const getCharacterLogs = memo(

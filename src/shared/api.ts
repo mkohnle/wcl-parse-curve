@@ -211,3 +211,71 @@ export interface CharacterLog {
   /** without spaces */
   spec: string;
 }
+
+// ---------- Raider.IO ----------
+
+export interface RioRanks {
+  world: number;
+  region: number;
+  realm: number;
+}
+
+/** A best M+ run per dungeon. */
+export interface RioRun {
+  dungeon: string;
+  level: number;
+  /** keystone upgrades when timed (1-3), 0 when depleted */
+  upgrades: number;
+  score: number;
+  /** ms */
+  time: number;
+  /** timer, ms */
+  par: number;
+  icon: string;
+}
+
+/** An equipped item. */
+export interface RioItem {
+  slot: string;
+  id: number;
+  name: string;
+  level: number;
+  /** WoW item quality: 0 poor ... 4 epic, 5 legendary */
+  quality: number;
+  icon: string;
+  /** for the exact Wowhead tooltip */
+  bonus: number[];
+  enchant: number | null;
+  gems: number[];
+}
+
+/** A chosen talent, positioned like in the in-game tree. */
+export interface RioTalent {
+  spell: number;
+  name: string;
+  icon: string;
+  /** in-game tree coordinates */
+  x: number;
+  y: number;
+  rank: number;
+  maxRank: number;
+  tree: "class" | "hero" | "spec";
+}
+
+/** A character on Raider.IO: current M+ season, gear, talents and pictures. */
+export interface RioProfile {
+  score: number;
+  /** Raider.IO's color for the score */
+  color: string;
+  ranks: { overall: RioRanks; class: RioRanks } | null;
+  runs: RioRun[];
+  url: string;
+  /** Blizzard renders: small avatar and the bigger portrait crop */
+  avatar: string | null;
+  portrait: string | null;
+  itemLevel: number | null;
+  gear: RioItem[];
+  /** in-game talent import string */
+  talents: string | null;
+  talentTree: RioTalent[];
+}

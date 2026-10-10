@@ -2,6 +2,7 @@ import { Router } from "express";
 import { type CharacterLog, CURVE_METRICS, type CurveMetric, type Region } from "../../shared/api.ts";
 import { cached, DAY, HOUR, MINUTE, prime } from "../cache.ts";
 import { characterParams, HttpError, int, region, str } from "../http.ts";
+import { fetchRio } from "../raiderio.ts";
 import { fetchCharacter, fetchCharacterLogs, fetchRealms } from "../wcl/characters.ts";
 import { ensureBudget } from "../wcl/client.ts";
 import { currentZones, fetchLatestZones } from "../wcl/zones.ts";
@@ -82,4 +83,14 @@ characters.get("/character/logs", async (req, res) => {
       return fresh;
     }),
   );
+});
+
+/** Raider.IO M+ score, ranks and best runs; no WCL points. */
+characters.get("/rio", async (req, res) => {
+  const c = characterParams(req);
+  const profile = await cached(`rio|${c.region}|${c.realm}|${c.name.toLowerCase()}`, 30 * MINUTE, () =>
+    fetchRio(c.name, c.realm, c.region),
+  );
+  if (!profile) throw new HttpError(404, "Not on Raider.IO");
+  res.json(profile);
 });

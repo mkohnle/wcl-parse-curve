@@ -36,6 +36,7 @@ Search for a report link, or a character as `Name-Realm` (EU/US toggle in the fi
 720 points per hour. A leaderboard page costs 1, a fight 4 (M+ 6, with deaths, kicks, damage share and item level), a report 1, an M+ analysis +1 for the key level total, another curve metric (HPS, DPS, Boss DPS) about 3 when first opened, a character page 1–2 for raid (+1 per boss opened) or about 10 for M+ (1 per dungeon played, opening one is free), the realm list 3 (cached 7 days).
 
 - Lookups stop when fewer than 40 points are left.
+- M+ score, ranks and best runs come from Raider.IO's public API (no key, no WCL points), cached for 30 minutes.
 - After a 429 nothing is sent until `retry-after` has passed (otherwise WCL blocks the IP for an hour).
 - Leaderboards are cached 6 h, in memory.
 
