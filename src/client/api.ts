@@ -1,5 +1,6 @@
 import type {
   ApiError,
+  Breakdown,
   Budget,
   CharacterLog,
   CharacterResponse,
@@ -9,6 +10,7 @@ import type {
   DistributionResponse,
   FightResponse,
   FightTalent,
+  Metric,
   Realm,
   Region,
   ReportResponse,
@@ -54,6 +56,10 @@ export const getReport = (code: string) => getJson<ReportResponse>("/api/report"
 
 export const getFight = memo((code: string, fight: number) =>
   getJson<FightResponse>("/api/fight", { code, fight }),
+);
+
+export const getBreakdown = memo((code: string, fight: number, name: string, metric: Metric) =>
+  getJson<Breakdown>("/api/breakdown", { code, fight, name, metric }),
 );
 
 export const getFightTalents = memo((code: string, fight: number) =>

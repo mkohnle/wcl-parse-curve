@@ -17,7 +17,7 @@ const STEP = 600;
 const CELL = 44;
 const ICON = 36;
 
-const atlas = (name: string) => `https://wow.zamimg.com/images/wow/TextureAtlas/live/${name}.webp`;
+export const atlas = (name: string) => `https://wow.zamimg.com/images/wow/TextureAtlas/live/${name}.webp`;
 /** The in-game talent background, e.g. talents-background-warrior-arms */
 const background = (className: string, spec: string) =>
   atlas(`talents-background-${className.toLowerCase()}-${spec.toLowerCase()}`);
@@ -128,7 +128,7 @@ function chosenOnly(talents: RioTalent[]): TalentNode[] {
 /** The popup frame: spec background, a header bar (title, extras on the right, close) and the body. */
 function popup(className: string, spec: string, title: string, extras: string, body: string): string {
   return `
-    <div data-talents-popup class="fixed inset-0 z-40 grid place-items-center bg-black/75 p-4 backdrop-blur-sm">
+    <div data-popup class="fixed inset-0 z-40 grid place-items-center bg-black/75 p-4 backdrop-blur-sm">
       <div class="panel relative max-h-full w-full max-w-6xl overflow-auto">
         ${spec ? `<div class="pointer-events-none absolute inset-0 bg-cover bg-center opacity-60" style="background-image:url(${background(className, spec)})"></div>` : ""}
         <div class="pointer-events-none absolute inset-0" style="background:radial-gradient(ellipse at center, transparent 30%, rgb(12 9 7 / .75))"></div>
@@ -138,7 +138,7 @@ function popup(className: string, spec: string, title: string, extras: string, b
             <span class="font-bold uppercase tracking-[0.14em] text-gold">${esc(title)}</span>
             <span class="ml-auto"></span>
             ${extras}
-            <button type="button" data-close-talents class="btn" aria-label="Close">✕</button>
+            <button type="button" data-close-popup class="btn" aria-label="Close">✕</button>
           </div>
           ${body}
         </div>

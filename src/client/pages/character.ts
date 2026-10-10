@@ -1,8 +1,9 @@
-import type { CharacterResponse, Metric, RioProfile, TalentTree, ZoneList } from "../../shared/api.ts";
+import type { CharacterResponse, Metric, RioProfile, ZoneList } from "../../shared/api.ts";
 import { getCharacter, getCharacterLogs, getRio, getTalentTree, getZones } from "../api.ts";
 import { showBudget } from "../budget.ts";
 import { errorMessage, pageDom, setBusy, setStatus } from "../dom.ts";
 import { esc } from "../format.ts";
+import { closePopup, isPopupOpen, showPopup } from "../popup.ts";
 import { prefs } from "../prefs.ts";
 import { addRecent } from "../recent.ts";
 import { type CharacterRoute, navigate, registerPage } from "../router.ts";
@@ -44,7 +45,7 @@ registerPage("character", { show, hide });
 
 function hide() {
   generation++;
-  closeTalents();
+  closePopup();
   rio = null;
   character = null;
   shown = null;
@@ -221,52 +222,9 @@ async function toggleLogs(c: CharacterResponse, boss: HTMLButtonElement) {
   }
 }
 
-// ---------- talents popup (on <body>, outside the page root) ----------
-
-function closeTalents() {
-  document.querySelector("[data-talents-popup]")?.remove();
-}
-
-/** Shows the popup at once, then the spec's full tree (free, from our server); just the chosen talents if that fails. */
+/** Shows the popup at once, then the spec's full tree; just the chosen talents if that fails. */
 async function openTalents(p: RioProfile, className: string) {
-  closeTalents();
-  const show = (tree: TalentTree | null | undefined) => {
-    const html = renderTalents(p, className, tree);
-    const open = document.querySelector("[data-talents-popup]");
-    if (open) open.outerHTML = html;
-    else document.body.insertAdjacentHTML("beforeend", html);
-  };
-  show(undefined);
+  showPopup(renderTalents(p, className, undefined));
   const tree = p.spec ? await getTalentTree(className, p.spec).catch(() => null) : null;
-  // closed in the meantime
-  if (!document.querySelector("[data-talents-popup]")) return;
-  show(tree);
+  if (isPopupOpen()) showPopup(renderTalents(p, className, tree));
 }
-
-document.addEventListener("click", async (e) => {
-  const target = e.target as HTMLElement;
-  if (!target.closest("[data-talents-popup]")) return;
-  // the backdrop or the close button
-  if (target.matches("[data-talents-popup]") || target.closest("[data-close-talents]")) {
-    closeTalents();
-    return;
-  }
-  const copy = target.closest<HTMLElement>("[data-copy-talents]");
-  if (copy) {
-    await navigator.clipboard.writeText(copy.dataset.copyTalents ?? "").then(
-      // done: plain text instead of the button
-      () =>
-        copy.replaceWith(
-          Object.assign(document.createElement("span"), {
-            className: "ml-auto text-sm text-zinc-400",
-            textContent: "Copied ✓",
-          }),
-        ),
-      () => setStatus("Couldn't copy to the clipboard.", true),
-    );
-  }
-});
-
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") closeTalents();
-});

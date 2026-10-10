@@ -346,3 +346,18 @@ export interface TalentTree {
   /** atlas: Blizzard texture name of the hero tree's emblem */
   heroTrees: { id: number; name: string; atlas: string | null }[];
 }
+
+// ---------- log comparison ----------
+
+/** One player's fight, ability by ability. */
+export interface Breakdown {
+  name: string;
+  /** ms */
+  duration: number;
+  /** ms spent casting, null if unknown */
+  activeTime: number | null;
+  /** damage or healing in total */
+  amount: number;
+  /** best first */
+  abilities: { id: number; name: string; icon: string; casts: number; amount: number }[];
+}

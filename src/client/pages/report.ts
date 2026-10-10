@@ -1,15 +1,20 @@
 import {
+  type Breakdown,
   type CharacterLog,
   CURVE_METRICS,
   type CurveMetric,
   type Fight,
   type FightResponse,
+  type LogRef,
+  type Metric,
   type Player,
   type Region,
   type ReportResponse,
+  type TalentTree,
   type TopTalents,
 } from "../../shared/api.ts";
 import {
+  getBreakdown,
   getCharacterLogs,
   getDistribution,
   getFight,
@@ -20,16 +25,23 @@ import {
 } from "../api.ts";
 import { showBudget } from "../budget.ts";
 import { mountChart } from "../chart.ts";
-import { buildCurve } from "../curve.ts";
+import { buildCurve, type Curve } from "../curve.ts";
 import { dom, errorMessage, pageDom, setBusy, setStatus } from "../dom.ts";
 import { metricLabel } from "../format.ts";
 import { sampledShare, treeCurve, treeShare } from "../hero-tree.ts";
+import { closePopup, isPopupOpen, showPopup } from "../popup.ts";
 import { prefs } from "../prefs.ts";
 import { estimatedRank, loggedRank, rankFromParse, rankOnLeaderboard } from "../rank.ts";
 import { addRecent } from "../recent.ts";
 import { navigate, type ReportRoute, registerPage, replaceRoute } from "../router.ts";
 import { DEMO_CODE, matchRealms } from "../search-input.ts";
 import { type LabeledParse, renderAnalysis, renderAnalysisLoading } from "../views/analysis.ts";
+import {
+  type CompareTarget,
+  type HeroBadge,
+  renderCompareLoading,
+  renderLogCompare,
+} from "../views/compare.ts";
 import {
   renderFights,
   renderFightsSkeleton,
@@ -39,13 +51,27 @@ import {
   renderReportHeaderSkeleton,
   selectCard,
 } from "../views/report.ts";
-import { renderTalentCompare } from "../views/talents.ts";
+import { atlas, renderTalentCompare } from "../views/talents.ts";
 import { loadWowheadTooltips } from "../wowhead.ts";
 
 const { reportHead, fights: fightsEl, players: playersEl, analysis: analysisEl } = pageDom;
 
 let report: ReportResponse | null = null;
 let fight: FightResponse | null = null;
+/** The shown analysis, for the log comparison popup. */
+let compare: {
+  player: Player;
+  parse: number;
+  metric: Metric;
+  curve: Curve;
+  /** leaderboard logs behind the curve, with their hero tree */
+  logs: CompareLog[];
+  /** set on the first open: they depend on the player's hero tree */
+  targets?: CompareTarget[];
+  heroes?: { you: number | null; tree: TalentTree | null };
+} | null = null;
+/** Drops a comparison that finished after another target was picked. */
+let compareRun = 0;
 /** Top-100 talents of the shown curve, for the comparison popup. */
 let topTalents: TopTalents | null = null;
 let shown: ReportRoute | null = null;
@@ -278,6 +304,10 @@ async function showAnalysis(
     const log = dist.logs[i];
     return log && (!share || dist.trees[i] === tree?.id) ? [{ rank, amount, log }] : [];
   });
+  const compareLogs: CompareLog[] = dist.points.flatMap(([rank, amount], i) => {
+    const log = dist.logs[i];
+    return log && (!share || dist.trees[i] === tree?.id) ? [{ rank, amount, log, tree: dist.trees[i] }] : [];
+  });
   // the spec's #1 if its log is public; in a hero tree view the tree's best known log
   const topLog = share ? (logs[0]?.log ?? null) : dist.points[0]?.[0] === 1 ? dist.logs[0] : null;
 
@@ -293,8 +323,16 @@ async function showAnalysis(
     topLog,
     // M+ fights bring the talents; raid ones load them on click
     dist.topTalents.players >= 10 && (!isMythicPlus || Boolean(player.talents?.length)),
+    compareTargets(compareLogs, curve, shownParse.parse).length > 0,
   );
   topTalents = dist.topTalents;
+  compare = {
+    player,
+    parse: shownParse.parse,
+    metric: shownParse.metric === "hps" ? "hps" : "dps",
+    curve,
+    logs: compareLogs,
+  };
   mountChart(analysisEl.querySelector("#chart") as HTMLElement, dom.tooltip, curve, player, shownParse, logs);
 }
 
@@ -367,6 +405,10 @@ analysisEl.addEventListener("click", async (e) => {
     navigate({ ...shown, tree: Number(treeButton.dataset.tree) || null });
     return;
   }
+  if (target.closest("[data-log-compare]")) {
+    await openLogCompare();
+    return;
+  }
   if (target.closest("[data-talent-compare]")) {
     await openTalentCompare();
     return;
@@ -386,26 +428,117 @@ async function openTalentCompare() {
   const route = shown;
   const top = topTalents;
   if (!player || !route?.fight || !top) return;
-  const show = (html: string) => {
-    const open = document.querySelector("[data-talents-popup]");
-    if (open) open.outerHTML = html;
-    else document.body.insertAdjacentHTML("beforeend", html);
-  };
-  show(renderTalentCompare(player.className, player.spec, [], top, undefined));
+  showPopup(renderTalentCompare(player.className, player.spec, [], top, undefined));
   loadWowheadTooltips();
   try {
     const [picks, tree] = await Promise.all([
       player.talents ?? getFightTalents(route.code, route.fight).then((all) => all[player.name] ?? []),
       getTalentTree(player.className, player.spec).catch(() => null),
     ]);
-    // closed in the meantime
-    if (!document.querySelector("[data-talents-popup]")) return;
-    show(renderTalentCompare(player.className, player.spec, picks, top, tree));
+    if (isPopupOpen()) showPopup(renderTalentCompare(player.className, player.spec, picks, top, tree));
   } catch (e) {
-    document.querySelector("[data-talents-popup]")?.remove();
+    closePopup();
     setStatus(errorMessage(e), true);
   }
 }
+
+/** Parse tiers a comparison can aim for, besides the best log. */
+const COMPARE_TIERS = [99, 95, 90, 75];
+
+/**
+ * Better logs to compare with, from the leaderboard logs behind the curve: the best one, and the closest
+ * at each tier above the player's parse. Lowest first.
+ */
+function compareTargets(logs: CompareLog[], curve: Curve, yourParse: number): CompareTarget[] {
+  const out: CompareTarget[] = [];
+  const add = (label: string, e: CompareLog | undefined) => {
+    if (!e || out.some((t) => t.log.code === e.log.code && t.log.fight === e.log.fight)) return;
+    const parse = curve.percentileOf(e.amount);
+    if (parse > yourParse) out.push({ log: e.log, label, parse, amount: e.amount, tree: e.tree });
+  };
+  add(`#${logs[0]?.rank}`, logs[0]);
+  for (const tier of COMPARE_TIERS) {
+    const rank = curve.total * (1 - tier / 100);
+    add(
+      `~${tier}`,
+      logs.reduce<CompareLog | undefined>(
+        (a, b) => (!a || Math.abs(b.rank - rank) < Math.abs(a.rank - rank) ? b : a),
+        undefined,
+      ),
+    );
+  }
+  return out.sort((a, b) => a.parse - b.parse);
+}
+
+/** A leaderboard log the comparison can pick. */
+type CompareLog = { rank: number; amount: number; log: LogRef; tree: number | null };
+
+/** The player's hero tree in this fight (raid: 1 point per fight for the talents), and the spec's trees. */
+async function heroTreeOf(player: Player, code: string, fightId: number) {
+  const [picks, tree] = await Promise.all([
+    player.talents ?? getFightTalents(code, fightId).then((all) => all[player.name] ?? []),
+    getTalentTree(player.className, player.spec).catch(() => null),
+  ]);
+  const taken = new Set(picks.map((t) => t.id));
+  const node = tree?.hero.find((n) => n.entries.some((e) => taken.has(e.id)));
+  return { you: node?.heroTree ?? null, tree };
+}
+
+const heroBadge = (tree: TalentTree | null, id: number | null): HeroBadge | null => {
+  const hero = tree?.heroTrees.find((h) => h.id === id);
+  return hero ? { name: hero.name, emblem: hero.atlas ? atlas(hero.atlas) : null } : null;
+};
+
+/**
+ * The shown player's fight against a better log, ability by ability (about 3 points per log, cached).
+ * Logs of the player's own hero tree first; others only if none of them is better.
+ */
+async function openLogCompare(index = 0) {
+  const c = compare;
+  const route = shown;
+  if (!c || !route?.fight) return;
+  const run = ++compareRun;
+  showPopup(renderCompareLoading());
+  loadWowheadTooltips();
+  try {
+    if (!c.targets) {
+      c.heroes = await heroTreeOf(c.player, route.code, route.fight);
+      const you = c.heroes.you;
+      const same =
+        you === null
+          ? []
+          : compareTargets(
+              c.logs.filter((l) => l.tree === you),
+              c.curve,
+              c.parse,
+            );
+      c.targets = same.length ? same : compareTargets(c.logs, c.curve, c.parse);
+    }
+    const targets = c.targets;
+    const selected = targets[index] ?? targets[0];
+    if (!selected || run !== compareRun || !isPopupOpen()) return;
+    const tree = c.heroes?.tree ?? null;
+    const heroes = { you: heroBadge(tree, c.heroes?.you ?? null), them: heroBadge(tree, selected.tree) };
+    const render = (me?: Breakdown, them?: Breakdown) =>
+      showPopup(renderLogCompare(c.player, c.parse, c.metric, targets, selected, me, them, heroes));
+    render();
+    const [me, them] = await Promise.all([
+      getBreakdown(route.code, route.fight, c.player.name, c.metric),
+      getBreakdown(selected.log.code, selected.log.fight, selected.log.name, c.metric),
+    ]);
+    if (run === compareRun && isPopupOpen()) render(me, them);
+  } catch (e) {
+    if (run !== compareRun) return;
+    closePopup();
+    setStatus(errorMessage(e), true);
+  }
+}
+
+// the comparison's target picker
+document.addEventListener("change", async (e) => {
+  const select = (e.target as HTMLElement).closest<HTMLSelectElement>("[data-compare-target]");
+  if (select) await openLogCompare(Number(select.value));
+});
 
 /** The player's name: open their character page. */
 async function openCharacter() {

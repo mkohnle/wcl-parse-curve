@@ -115,6 +115,8 @@ export function renderAnalysis(
   topLog: LogRef | null,
   /** show the "Talents vs top 100" button */
   talentCompare: boolean,
+  /** show the "Compare with a better log" button */
+  logCompare: boolean,
 ): string {
   // the log's parse; the curve is pinned to it
   const current = Math.floor(main.parse);
@@ -178,6 +180,7 @@ export function renderAnalysis(
                 : compact(curve.amountAtRank(1)),
             )}
           </div>
+          ${logCompare ? `<button type="button" data-log-compare class="btn w-full justify-center">Compare with a better log</button>` : ""}
           ${talentCompare ? `<button type="button" data-talent-compare class="btn w-full justify-center">Talents vs top 100</button>` : ""}
         </aside>
       </div>
