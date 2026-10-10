@@ -3,7 +3,7 @@ import { compact, date, duration, esc, spaced } from "../format.ts";
 import { runTags, type Tag } from "../run-tags.ts";
 import { DEMO_CODE } from "../search-input.ts";
 import { bossIcon, classColor, difficultyName, specIcon, tierColor, tierMetal, zoneIcon } from "../wow.ts";
-import { img, skeleton } from "./common.ts";
+import { img, SEP, skeleton } from "./common.ts";
 
 export function renderReportHeader(code: string, report: ReportResponse): string {
   const zone = report.zone;
@@ -12,7 +12,7 @@ export function renderReportHeader(code: string, report: ReportResponse): string
       ${zone ? img(zoneIcon(zone.id), "size-14") : ""}
       <div class="min-w-0 flex-1">
         <h2 class="truncate text-2xl font-bold text-zinc-100">${esc(report.title)}</h2>
-        <div class="text-zinc-400">${zone && zone.name !== report.title ? `${esc(zone.name)} · ` : ""}${date(report.startTime)}</div>
+        <div class="text-zinc-400">${zone && zone.name !== report.title ? `${esc(zone.name)}${SEP}` : ""}${date(report.startTime)}</div>
       </div>
       ${
         code === DEMO_CODE
@@ -52,20 +52,20 @@ export function renderFights(fights: Fight[], zoneId: number | undefined, select
           <div class="truncate font-semibold text-zinc-100">${esc(f.name)}</div>
           <div class="text-xs text-zinc-400">
             <span class="${color}">${result}</span>
-            · ${mode} · ${duration(f.duration)}
+            ${SEP}${mode}${SEP}${duration(f.duration)}
           </div>
         </div>
       </button>`;
   });
   return section(
-    "1 · Choose a fight",
+    "Fights",
     `<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">${cards.join("")}</div>`,
   );
 }
 
 export const renderFightsSkeleton = () =>
   section(
-    "1 · Choose a fight",
+    "Fights",
     `<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">${Array.from(
       { length: 3 },
       () =>
@@ -115,7 +115,7 @@ export function renderPlayers(
               <span class="mr-0.5 truncate font-semibold" style="color:${cc}">${esc(p.name)}</span>
               ${(tags.get(p.name) ?? []).map(badge).join("")}
             </div>
-            <div class="truncate text-xs text-zinc-500">${esc(spaced(p.spec))} · <span class="font-semibold text-zinc-200">${compact(p.amount)} ${p.metric.toUpperCase()}</span></div>
+            <div class="truncate text-xs text-zinc-500">${esc(spaced(p.spec))}${SEP}<span class="font-semibold text-zinc-200">${compact(p.amount)} ${p.metric.toUpperCase()}</span></div>
           </div>
           <div class="text-2xl font-bold tabular-nums ${tierMetal(parse)}" style="color:${tierColor(parse)}">${parse}</div>
         </button>`;
@@ -123,7 +123,7 @@ export function renderPlayers(
     return `<div><div class="group-bar">${title}</div><div class="space-y-2">${cards.join("")}</div></div>`;
   });
   return section(
-    "2 · Pick a player",
+    "Players",
     `<div class="panel grid gap-5 p-4 md:grid-cols-3">${groups.join("")}</div>${
       unranked
         ? `<p class="mt-2 text-xs text-zinc-500">${unranked === 1 ? "1 player isn't" : `${unranked} players aren't`} ranked by Warcraftlogs.</p>`
@@ -134,7 +134,7 @@ export function renderPlayers(
 
 export const renderPlayersSkeleton = () =>
   section(
-    "2 · Pick a player",
+    "Players",
     `<div class="panel grid gap-5 p-4 md:grid-cols-3">${ROLE_GROUPS.map(
       () =>
         `<div class="space-y-2">${skeleton("h-3 w-16")}${Array.from({ length: 3 }, () => skeleton("h-14 w-full")).join("")}</div>`,

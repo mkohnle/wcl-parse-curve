@@ -7,7 +7,7 @@ import { img } from "./common.ts";
 /** Small tinted pill after the class and realm; the realm rank on hover. */
 export function renderRioBadge(p: RioProfile, className: string, realmName: string): string {
   const rank = p.ranks?.class.realm;
-  const title = `Raider.IO M+ score${rank ? ` · #${fmt(rank)} ${spaced(className)} on ${realmName}` : ""}`;
+  const title = `Raider.IO M+ score${rank ? `, #${fmt(rank)} ${spaced(className)} on ${realmName}` : ""}`;
   return `
     <a href="${esc(p.url)}" target="_blank" rel="noreferrer" title="${esc(title)}"
        class="inline-flex items-baseline gap-1.5 rounded-sm border px-1.5 py-px leading-snug hover:brightness-125"

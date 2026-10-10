@@ -91,8 +91,8 @@ export function renderZoneSummary(z: CharacterZone): string {
       ${
         done.length > 1
           ? `<div class="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-zinc-400">
-              <span>Strongest: <span class="text-zinc-200">${label(top)}</span> · <span style="color:${tierColor(top.best)}">${Math.floor(top.best)}</span></span>
-              <span>Room to grow: <span class="text-zinc-200">${label(low)}</span> · <span style="color:${tierColor(low.best)}">${Math.floor(low.best)}</span></span>
+              <span>Best: <span class="text-zinc-200">${label(top)}</span> (<span style="color:${tierColor(top.best)}">${Math.floor(top.best)}</span>)</span>
+              <span>Worst: <span class="text-zinc-200">${label(low)}</span> (<span style="color:${tierColor(low.best)}">${Math.floor(low.best)}</span>)</span>
             </div>`
           : ""
       }

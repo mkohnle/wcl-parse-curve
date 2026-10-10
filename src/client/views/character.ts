@@ -2,7 +2,7 @@ import type { CharacterLog, CharacterResponse, CharacterSection, CharacterZone }
 import { compact, date, esc, spaced } from "../format.ts";
 import { bossIcon, classColor, classIcon, difficultyName, specIcon, tierColor } from "../wow.ts";
 import { renderZoneSummary } from "./character-summary.ts";
-import { img, skeleton } from "./common.ts";
+import { img, SEP, skeleton } from "./common.ts";
 
 const RAID_COLUMNS = "grid-cols-[2rem_1fr_3rem_3rem_3rem_4.5rem]";
 /** M+: key level (with Raider.IO's stars below) instead of the best amount */
@@ -30,7 +30,7 @@ export function renderCharacterHeader(c: CharacterResponse): string {
           <span data-rio-badge class="shrink-0"></span>
         </div>
         <div class="flex flex-wrap items-center gap-x-2 text-zinc-400">
-          ${esc(spaced(c.className))} · ${esc(c.realm.name)} (${c.region})
+          ${esc(spaced(c.className))}${SEP}${esc(c.realm.name)} (${c.region})
         </div>
       </div>
       <div class="hidden shrink-0 flex-col items-end gap-1 sm:flex">
@@ -64,13 +64,12 @@ export function renderCharacterZone(c: CharacterResponse): string {
   if (!z) return `<div class="panel p-4 text-sm text-zinc-500">No current zone found.</div>`;
   return `
     <section>
-      <h3 class="heading">${esc(z.name)}${z.mythicPlus ? "" : ` · ${difficultyName(z.difficulty)}`}</h3>
+      <h3 class="heading">${esc(z.name)}${z.mythicPlus ? "" : ` (${difficultyName(z.difficulty)})`}</h3>
       ${renderZoneSummary(z)}
       <div class="panel divide-y divide-line">
         ${zoneHeader(z)}
         ${z.bosses.map((b) => bossRow(c, z, b)).join("")}
       </div>
-      <p class="mt-3 text-xs text-zinc-500">Best and median parse per boss. Click a boss or dungeon to see the logs.</p>
     </section>`;
 }
 

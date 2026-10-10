@@ -9,5 +9,5 @@ export async function showBudget() {
     return;
   }
   const minutes = Math.max(1, Math.ceil(b.resetIn / 60));
-  dom.budget.textContent = `Warcraft Logs API: ${Math.max(0, Math.floor(b.remaining))} of ${b.limit} points left this hour · resets in ${minutes} min`;
+  dom.budget.textContent = `Warcraft Logs API: ${Math.max(0, Math.floor(b.remaining))} of ${b.limit} points left this hour, resets in ${minutes} min`;
 }

@@ -3,7 +3,7 @@ import type { Curve } from "../curve.ts";
 import { compact, esc, fmt, metricLabel, spaced } from "../format.ts";
 import type { Rank } from "../rank.ts";
 import { classColor, specIcon, TIERS, talentIcon, tierColor, tierMetal } from "../wow.ts";
-import { img, skeleton } from "./common.ts";
+import { img, SEP, skeleton } from "./common.ts";
 import { renderGroup } from "./group.ts";
 
 /** The parse a curve is built for, e.g. { label: "+18 parse", parse: 19, amount: 512000, metric: "dps" } */
@@ -40,7 +40,7 @@ function header(p: Player, main: LabeledParse, rank: Rank | null | undefined): s
       ${img(specIcon(p.className, p.spec), "size-16 border-2", undefined, `border-color:${cc}`)}
       <div class="min-w-0">
         ${name}
-        <div class="text-zinc-400">${esc(spaced(p.spec))} ${esc(spaced(p.className))}${p.realm ? ` · ${esc(p.realm)}` : ""} · <span class="text-zinc-200">${fmt(main.amount)}</span> ${metricLabel(main.metric)}${p.run?.itemLevel ? ` · ilvl ${p.run.itemLevel}` : ""}</div>
+        <div class="text-zinc-400">${esc(spaced(p.spec))} ${esc(spaced(p.className))}${p.realm ? `${SEP}${esc(p.realm)}` : ""}${SEP}<span class="text-zinc-200">${fmt(main.amount)}</span> ${metricLabel(main.metric)}${p.run?.itemLevel ? `${SEP}ilvl ${p.run.itemLevel}` : ""}</div>
       </div>
       <div class="ml-auto text-right">
         <div class="label">${esc(main.label)}</div>
@@ -71,8 +71,7 @@ function treeToggle(trees: TreeOption[], selected: number | null): string {
 function metricToggle(metrics: CurveMetric[], own: CurveMetric, selected: CurveMetric): string {
   if (metrics.length < 2) return "";
   const button = (m: CurveMetric) =>
-    `<button type="button" data-metric="${m === own ? "" : m}" class="btn ${m === selected ? "btn-on" : ""}"
-       ${m === own ? "" : `title="Loads another leaderboard (about 3 API points, then cached)"`}>${metricLabel(m)}</button>`;
+    `<button type="button" data-metric="${m === own ? "" : m}" class="btn ${m === selected ? "btn-on" : ""}">${metricLabel(m)}</button>`;
   return `
     <div class="flex flex-wrap items-center gap-2 border-b border-line px-5 py-3">
       <span class="label mr-1">Curve</span>
@@ -143,7 +142,7 @@ export function renderAnalysis(
     ? `Ranked only among ${esc(tree.name)} players. Their share below the sampled top of the leaderboard is estimated, so this is not a Warcraft Logs number.`
     : curve.exactRanks >= curve.total
       ? `Based on the complete leaderboard of ${fmt(curve.total)} parses.`
-      : `The top ${fmt(curve.exactRanks)} of ${fmt(curve.total)} parses are real leaderboard data. Below that the curve is estimated and passes through this player's log parse.`;
+      : `The top ${fmt(curve.exactRanks)} of ${fmt(curve.total)} parses are real leaderboard data. Below that the curve is estimated.`;
 
   return `
     <section class="panel overflow-hidden">

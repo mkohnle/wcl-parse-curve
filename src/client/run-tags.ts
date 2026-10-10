@@ -26,7 +26,7 @@ const RULES: {
   {
     tag: {
       label: "MVP",
-      title: `Highest key level parse; each death counts as -${DEATH_PENALTY}`,
+      title: `Carry of the group`,
       classes: "bg-gold/15 text-gold",
     },
     pick: (ps, parse) => {

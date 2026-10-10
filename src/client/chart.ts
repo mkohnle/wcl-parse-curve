@@ -129,7 +129,7 @@ export function mountChart(
       <line data-hover x1="0" x2="0" y1="${PAD.top - 8}" y2="${baseY}" stroke="#fff" stroke-opacity=".25" visibility="hidden"/>
       <line x1="${px}" x2="${px}" y1="${PAD.top - 14}" y2="${baseY}" stroke="${pc}" stroke-width="3"/>
       <circle cx="${px}" cy="${baseY}" r="5" fill="${pc}" stroke="#0c0907" stroke-width="2"/>
-      <text x="${px}" y="${PAD.top - 22}" fill="${pc}" font-size="14" font-weight="700" text-anchor="${anchor}">${esc(player.name)} · ${parse}</text>
+      <text x="${px}" y="${PAD.top - 22}" fill="${pc}" font-size="14" font-weight="700" text-anchor="${anchor}">${esc(player.name)} (${parse})</text>
       <rect x="${PAD.left}" y="0" width="${iw}" height="${H}" fill="transparent"/>
     </svg>`;
 
@@ -209,7 +209,7 @@ function exampleHtml(ex: RealLog, bin: Bin): string {
     <div class="mt-1.5 border-t border-line pt-1.5 text-xs">
       <div class="text-zinc-500">${inBin ? "Example log" : "Closest real log"}</div>
       <div><span class="text-zinc-200">${esc(ex.log.name)}</span> <span class="text-zinc-500">${esc(ex.log.server)}</span></div>
-      <div class="text-zinc-400">${compact(ex.amount)} · rank ${fmt(ex.rank)} · ${date(ex.log.date)}</div>
+      <div class="text-zinc-400">${compact(ex.amount)}, rank ${fmt(ex.rank)}, ${date(ex.log.date)}</div>
       <div class="mt-0.5 text-gold">Click to open on Warcraft Logs ↗</div>
     </div>`;
 }
