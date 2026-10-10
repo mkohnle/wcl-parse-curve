@@ -251,6 +251,8 @@ export interface RioItem {
 
 /** A chosen talent, positioned like in the in-game tree. */
 export interface RioTalent {
+  /** tree node id, same as in TalentTree */
+  node: number;
   spell: number;
   name: string;
   icon: string;
@@ -275,7 +277,35 @@ export interface RioProfile {
   portrait: string | null;
   itemLevel: number | null;
   gear: RioItem[];
+  /** active spec without spaces, e.g. "BeastMastery"; the talents are for this one */
+  spec: string | null;
   /** in-game talent import string */
   talents: string | null;
   talentTree: RioTalent[];
+}
+
+// ---------- talent trees ----------
+
+/** A talent node of a spec's full tree (Raidbots data). */
+export interface TalentNode {
+  id: number;
+  /** in-game tree coordinates */
+  x: number;
+  y: number;
+  /** "single", "choice" (one of two) or "tiered" */
+  type: string;
+  /** nodes this one leads to */
+  next: number[];
+  /** hero tree id, 0 for class and spec nodes */
+  heroTree: number;
+  entries: { spell: number; name: string; icon: string; passive: boolean; maxRanks: number }[];
+}
+
+/** A spec's class, spec and hero trees. */
+export interface TalentTree {
+  class: TalentNode[];
+  spec: TalentNode[];
+  hero: TalentNode[];
+  /** atlas: Blizzard texture name of the hero tree's emblem */
+  heroTrees: { id: number; name: string; atlas: string | null }[];
 }

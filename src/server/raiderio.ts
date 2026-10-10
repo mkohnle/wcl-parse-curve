@@ -1,4 +1,5 @@
 import type { Region, RioProfile, RioRanks, RioTalent } from "../shared/api.ts";
+import { compactName } from "../shared/names.ts";
 import { cached, DAY } from "./cache.ts";
 
 // Raider.IO's public API: M+ score, ranks and best runs. No key; separate from the WCL budget.
@@ -35,6 +36,7 @@ const scoreTiers = () =>
 
 interface RawProfile {
   profile_url: string;
+  active_spec_name?: string;
   thumbnail_url?: string;
   gear?: {
     item_level_equipped?: number;
@@ -70,6 +72,7 @@ interface RawTalent {
   entryIndex: number;
   rank: number;
   node: {
+    id: number;
     posX: number;
     posY: number;
     subTreeId: number;
@@ -88,6 +91,7 @@ function toTalents(loadout: RawTalent[]): RioTalent[] {
     const tree = t.node.subTreeId ? "hero" : t.node.posX < SPEC_TREE_X ? "class" : "spec";
     return [
       {
+        node: t.node.id,
         spell: entry.spell.id,
         name: entry.spell.name,
         icon: entry.spell.icon,
@@ -142,6 +146,7 @@ export async function fetchRio(name: string, realm: string, region: Region): Pro
         enchant: it.enchant || null,
         gems: it.gems ?? [],
       })),
+    spec: raw.active_spec_name ? compactName(raw.active_spec_name) : null,
     talents: raw.talentLoadout?.loadout_text ?? null,
     talentTree: toTalents(raw.talentLoadout?.loadout ?? []),
   };
