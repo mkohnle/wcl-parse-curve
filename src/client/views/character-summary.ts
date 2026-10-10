@@ -20,8 +20,8 @@ export function renderZoneSummary(z: CharacterZone): string {
   const keys = done.map((b) => b.keyLevel ?? 0);
   const label = (b: Boss) => `${esc(b.name)}${z.mythicPlus && b.keyLevel ? ` +${b.keyLevel}` : ""}`;
 
-  const stat = (title: string, value: string, hint: string, color = "#f3efe8", sub = "") => `
-    <div title="${hint}">
+  const stat = (title: string, value: string, color = "#f3efe8", sub = "") => `
+    <div>
       <div class="label">${title}</div>
       <div class="text-3xl font-bold tabular-nums leading-tight" style="color:${color}">${value}</div>
       ${sub ? `<div class="text-xs text-zinc-500">${sub}</div>` : ""}
@@ -34,38 +34,19 @@ export function renderZoneSummary(z: CharacterZone): string {
   return `
     <div class="panel mb-4 p-4">
       <div class="grid grid-cols-3 gap-4">
-        ${stat(
-          "Performance",
-          oneDecimal(best),
-          z.mythicPlus
-            ? "Average of the best parse per dungeon at its highest key, compared only with the same spec at the same key level"
-            : "Average of the best parse per boss",
-          tierColor(best),
-        )}
-        ${stat(
-          "Consistency",
-          oneDecimal(median),
-          "Average of the median parse. Close to Performance means steady, far below means big swings between runs.",
-          tierColor(median),
-        )}
+        ${stat("Performance", oneDecimal(best), tierColor(best))}
+        ${stat("Consistency", oneDecimal(median), tierColor(median))}
         ${
           z.mythicPlus
             ? stat(
                 "Key level",
                 `+${avg(keys).toFixed(1)}`,
-                "Average highest key per dungeon",
                 undefined,
                 Math.min(...keys) === Math.max(...keys)
                   ? `+${keys[0]} everywhere`
                   : `+${Math.min(...keys)} to +${Math.max(...keys)}`,
               )
-            : stat(
-                "Progress",
-                `${done.length}/${z.bosses.length}`,
-                "Bosses with a ranked kill",
-                undefined,
-                "bosses killed",
-              )
+            : stat("Progress", `${done.length}/${z.bosses.length}`, undefined, "bosses killed")
         }
       </div>
 

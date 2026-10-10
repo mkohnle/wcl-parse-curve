@@ -130,7 +130,7 @@ export function renderTalents(p: RioProfile, className: string, tree: TalentTree
           <div class="site-header flex items-center gap-3 px-4 py-2">
             ${spec ? img(specIcon(className, spec), "size-7") : ""}
             <span class="font-bold uppercase tracking-[0.14em] text-gold">Talents</span>
-            ${p.talents ? `<button type="button" data-copy-talents="${esc(p.talents)}" class="btn ml-auto" title="Paste in-game under Import in the talent window">Copy import string</button>` : ""}
+            ${p.talents ? `<button type="button" data-copy-talents="${esc(p.talents)}" class="btn ml-auto">Copy import string</button>` : ""}
             <button type="button" data-close-talents class="btn ${p.talents ? "" : "ml-auto"}" aria-label="Close">✕</button>
           </div>
           ${body}

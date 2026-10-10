@@ -61,7 +61,7 @@ function treeToggle(trees: TreeOption[], selected: number | null): string {
   };
   return `
     <div class="flex flex-wrap items-center gap-2 border-b border-line px-5 py-3">
-      <span class="label mr-1" title="Share among the sampled top of the leaderboard">Hero tree</span>
+      <span class="label mr-1">Hero tree</span>
       ${button(null, "All")}
       ${trees.map((t) => button(t.id, t.name, t.share, t.icon)).join("")}
     </div>`;
@@ -139,10 +139,10 @@ export function renderAnalysis(
 
   const tree = trees.find((t) => t.id === selectedTree);
   const note = tree
-    ? `Ranked only among ${esc(tree.name)} players. Their share below the sampled top of the leaderboard is estimated, so this is not a Warcraft Logs number.`
+    ? `Among ${esc(tree.name)} players only, estimated.`
     : curve.exactRanks >= curve.total
-      ? `Based on the complete leaderboard of ${fmt(curve.total)} parses.`
-      : `The top ${fmt(curve.exactRanks)} of ${fmt(curve.total)} parses are real leaderboard data. Below that the curve is estimated.`;
+      ? `All ${fmt(curve.total)} parses.`
+      : `Top ${fmt(curve.exactRanks)} of ${fmt(curve.total)} real, rest estimated.`;
 
   return `
     <section class="panel overflow-hidden">

@@ -57,10 +57,7 @@ export function renderFights(fights: Fight[], zoneId: number | undefined, select
         </div>
       </button>`;
   });
-  return section(
-    "Fights",
-    `<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">${cards.join("")}</div>`,
-  );
+  return section("Fights", `<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">${cards.join("")}</div>`);
 }
 
 export const renderFightsSkeleton = () =>
