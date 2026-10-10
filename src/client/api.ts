@@ -12,6 +12,7 @@ import type {
   Region,
   ReportResponse,
   RioProfile,
+  TalentTree,
 } from "../shared/api.ts";
 
 async function getJson<T>(
@@ -87,6 +88,10 @@ export const getCharacter = memo((name: string, realm: string, region: Region, s
 
 export const getRio = memo((name: string, realm: string, region: Region) =>
   getJson<RioProfile>("/api/rio", { name, realm, region }),
+);
+
+export const getTalentTree = memo((className: string, spec: string) =>
+  getJson<TalentTree>("/api/talent-tree", { className, spec }),
 );
 
 export const getCharacterLogs = memo(

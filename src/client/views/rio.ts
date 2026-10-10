@@ -1,4 +1,4 @@
-import type { RioItem, RioProfile, RioRun, RioTalent } from "../../shared/api.ts";
+import type { RioItem, RioProfile, RioRun } from "../../shared/api.ts";
 import { duration, esc, fmt, spaced } from "../format.ts";
 import { talentIcon } from "../wow.ts";
 import { itemTooltip } from "../wowhead.ts";
@@ -67,55 +67,5 @@ export function renderRioGear(p: RioProfile): string {
       ${p.itemLevel ? `<div class="shrink-0"><div class="label">Item level</div><div class="text-xl font-bold tabular-nums text-zinc-100">${p.itemLevel.toFixed(2)}</div></div>` : ""}
       <div class="flex flex-wrap gap-1.5">${p.gear.map(item).join("")}</div>
       ${talentsButton(p)}
-    </div>`;
-}
-
-/** Grid step of the in-game tree coordinates, and how many pixels one step gets here. */
-const STEP = 600;
-const CELL = 42;
-const ICON = 34;
-
-function tree(title: string, talents: RioTalent[]): string {
-  if (!talents.length) return "";
-  const minX = Math.min(...talents.map((t) => t.x));
-  const minY = Math.min(...talents.map((t) => t.y));
-  const pos = (v: number, min: number) => ((v - min) / STEP) * CELL;
-  const width = Math.max(...talents.map((t) => pos(t.x, minX))) + ICON;
-  const height = Math.max(...talents.map((t) => pos(t.y, minY))) + ICON;
-  const nodes = talents
-    .map(
-      (t) => `
-        <a href="https://www.wowhead.com/spell=${t.spell}" data-wowhead="spell=${t.spell}" target="_blank" rel="noreferrer"
-           class="absolute hover:z-10 hover:brightness-125" style="left:${pos(t.x, minX)}px;top:${pos(t.y, minY)}px">
-          ${img(talentIcon(t.icon), "size-[34px] border-2 border-gold/70")}
-          ${t.maxRank > 1 ? `<span class="absolute -right-1 -bottom-1 rounded-sm bg-black/90 px-0.5 text-[9px] font-bold leading-tight text-gold">${t.rank}/${t.maxRank}</span>` : ""}
-        </a>`,
-    )
-    .join("");
-  return `
-    <div>
-      <div class="label mb-2 text-center">${title}</div>
-      <div class="relative mx-auto" style="width:${width}px;height:${height}px">${nodes}</div>
-    </div>`;
-}
-
-/** Popup with the talent trees laid out like in-game (class, hero, spec), and the import string to copy. */
-export function renderTalents(p: RioProfile, className: string): string {
-  const of = (t: RioTalent["tree"]) => p.talentTree.filter((x) => x.tree === t);
-  return `
-    <div data-talents-popup class="fixed inset-0 z-40 grid place-items-center bg-black/70 p-4 backdrop-blur-sm">
-      <div class="panel max-h-full w-full max-w-6xl overflow-auto">
-        <div class="site-header flex items-center gap-3 px-4 py-2">
-          <span class="font-bold uppercase tracking-[0.14em] text-gold">Talents</span>
-          <span class="text-sm text-zinc-400">${esc(spaced(className))}</span>
-          ${p.talents ? `<button type="button" data-copy-talents="${esc(p.talents)}" class="btn ml-auto" title="Paste in-game under Import in the talent window">Copy import string</button>` : ""}
-          <button type="button" data-close-talents class="btn ${p.talents ? "" : "ml-auto"}" aria-label="Close">✕</button>
-        </div>
-        <div class="flex flex-wrap items-start justify-center gap-10 p-6">
-          ${tree("Class", of("class"))}
-          ${tree("Hero", of("hero"))}
-          ${tree("Spec", of("spec"))}
-        </div>
-      </div>
     </div>`;
 }

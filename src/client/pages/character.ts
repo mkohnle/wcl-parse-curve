@@ -1,5 +1,5 @@
-import type { CharacterResponse, Metric, RioProfile } from "../../shared/api.ts";
-import { getCharacter, getCharacterLogs, getRio } from "../api.ts";
+import type { CharacterResponse, Metric, RioProfile, TalentTree } from "../../shared/api.ts";
+import { getCharacter, getCharacterLogs, getRio, getTalentTree } from "../api.ts";
 import { showBudget } from "../budget.ts";
 import { errorMessage, pageDom, setBusy, setStatus } from "../dom.ts";
 import { esc } from "../format.ts";
@@ -21,8 +21,8 @@ import {
   renderRioGear,
   renderRioStars,
   renderRioTime,
-  renderTalents,
 } from "../views/rio.ts";
+import { renderTalents } from "../views/talents.ts";
 import { classColor } from "../wow.ts";
 import { loadWowheadTooltips } from "../wowhead.ts";
 
@@ -127,8 +127,7 @@ async function showRio(c: CharacterResponse, route: CharacterRoute, gen: number)
 root.addEventListener("click", async (e) => {
   const target = e.target as HTMLElement;
   if (target.closest("[data-show-talents]") && rio && character) {
-    closeTalents();
-    document.body.insertAdjacentHTML("beforeend", renderTalents(rio, character.className));
+    await openTalents(rio, character.className);
     return;
   }
   const c = character;
@@ -187,6 +186,22 @@ async function toggleLogs(c: CharacterResponse, boss: HTMLButtonElement) {
 
 function closeTalents() {
   document.querySelector("[data-talents-popup]")?.remove();
+}
+
+/** Shows the popup at once, then the spec's full tree (free, from our server); just the chosen talents if that fails. */
+async function openTalents(p: RioProfile, className: string) {
+  closeTalents();
+  const show = (tree: TalentTree | null | undefined) => {
+    const html = renderTalents(p, className, tree);
+    const open = document.querySelector("[data-talents-popup]");
+    if (open) open.outerHTML = html;
+    else document.body.insertAdjacentHTML("beforeend", html);
+  };
+  show(undefined);
+  const tree = p.spec ? await getTalentTree(className, p.spec).catch(() => null) : null;
+  // closed in the meantime
+  if (!document.querySelector("[data-talents-popup]")) return;
+  show(tree);
 }
 
 document.addEventListener("click", async (e) => {
