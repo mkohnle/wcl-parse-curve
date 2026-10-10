@@ -73,10 +73,11 @@ async function show(route: CharacterRoute, prev: CharacterRoute | null) {
     if (gen !== generation) return;
     character = c;
     zoneList = list;
-    head.innerHTML = renderCharacterHeader(c);
+    // same character: keep the header (picture, gear) as it is
+    if (!keepHeader) head.innerHTML = renderCharacterHeader(c);
     body.innerHTML = `${renderSectionToggle(route.section, list, route.zone, c.zone?.difficulty)}${renderCharacterZone(c)}`;
     // Raider.IO's runs are for the current season only
-    showRio(c, route, gen, !list || c.zone?.id === list.current[route.section]);
+    showRio(c, route, gen, !keepHeader, !list || c.zone?.id === list.current[route.section]);
     addRecent({
       kind: "char",
       name: c.name,
@@ -97,9 +98,32 @@ async function show(route: CharacterRoute, prev: CharacterRoute | null) {
 }
 
 /** Raider.IO: score in the header, best run per dungeon in the M+ rows. Optional: failures stay silent. */
-async function showRio(c: CharacterResponse, route: CharacterRoute, gen: number, currentSeason: boolean) {
+/** newHeader: fill in the header's Raider.IO parts (only when it was just rendered). */
+async function showRio(
+  c: CharacterResponse,
+  route: CharacterRoute,
+  gen: number,
+  newHeader: boolean,
+  currentSeason: boolean,
+) {
   const p = await getRio(c.name, c.realm.slug, c.region).catch(() => null);
   if (!p || gen !== generation) return;
+  rio = p;
+  if (newHeader) showRioHeader(c, p);
+  if (route.section !== "mythicPlus" || !currentSeason) return;
+  for (const run of p.runs) {
+    const key = dungeonKey(run.dungeon);
+    const stars = body.querySelector<HTMLElement>(`[data-rio-stars="${key}"]`);
+    const time = body.querySelector<HTMLElement>(`[data-rio-time="${key}"]`);
+    if (!stars || !time) continue;
+    const sameKey = Number(stars.dataset.keyLevel) === run.level;
+    if (sameKey) stars.innerHTML = renderRioStars(run);
+    time.innerHTML = renderRioTime(run, sameKey);
+  }
+}
+
+/** Score, picture, portrait and gear in the header. */
+function showRioHeader(c: CharacterResponse, p: RioProfile) {
   const slot = (name: string) => head.querySelector<HTMLElement>(`[data-rio-${name}]`);
   const badge = slot("badge");
   if (badge) badge.innerHTML = renderRioBadge(p, c.className, c.realm.name);
@@ -116,20 +140,9 @@ async function showRio(c: CharacterResponse, route: CharacterRoute, gen: number,
     };
     pic.src = p.portrait;
   }
-  rio = p;
   const gear = slot("gear");
   if (gear) gear.innerHTML = renderRioGear(p);
   if (p.gear.length || p.talentTree.length) loadWowheadTooltips();
-  if (route.section !== "mythicPlus" || !currentSeason) return;
-  for (const run of p.runs) {
-    const key = dungeonKey(run.dungeon);
-    const stars = body.querySelector<HTMLElement>(`[data-rio-stars="${key}"]`);
-    const time = body.querySelector<HTMLElement>(`[data-rio-time="${key}"]`);
-    if (!stars || !time) continue;
-    const sameKey = Number(stars.dataset.keyLevel) === run.level;
-    if (sameKey) stars.innerHTML = renderRioStars(run);
-    time.innerHTML = renderRioTime(run, sameKey);
-  }
 }
 
 root.addEventListener("change", (e) => {

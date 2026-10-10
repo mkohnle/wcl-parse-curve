@@ -28,6 +28,7 @@ import {
   renderPlayersSkeleton,
   renderReportHeader,
   renderReportHeaderSkeleton,
+  selectCard,
 } from "../views/report.ts";
 
 const { reportHead, fights: fightsEl, players: playersEl, analysis: analysisEl } = pageDom;
@@ -71,7 +72,10 @@ async function show(route: ReportRoute, prev: ReportRoute | null) {
       shown = route;
       replaceRoute(route);
     }
-    fightsEl.innerHTML = renderFights(r.fights, r.zone?.id, route.fight);
+    // same report: only the highlight moves
+    if (sameReport && fightsEl.querySelector("[data-fight]"))
+      selectCard(fightsEl, "data-fight", String(route.fight));
+    else fightsEl.innerHTML = renderFights(r.fights, r.zone?.id, route.fight);
     if (!route.fight) {
       playersEl.innerHTML = analysisEl.innerHTML = "";
       return;
@@ -81,7 +85,10 @@ async function show(route: ReportRoute, prev: ReportRoute | null) {
     if (!f) return;
     const meta = r.fights.find((x) => x.id === route.fight);
     const isMythicPlus = (meta?.keystoneLevel ?? 0) > 0;
-    playersEl.innerHTML = renderPlayers(f.players, f.unranked, route.player, isMythicPlus);
+    // same fight: only the highlight moves (another player, hero tree or metric)
+    if (sameFight && playersEl.querySelector("[data-player]"))
+      selectCard(playersEl, "data-player", route.player);
+    else playersEl.innerHTML = renderPlayers(f.players, f.unranked, route.player, isMythicPlus);
 
     const player = f.players.find((p) => p.name === route.player);
     if (!player) {

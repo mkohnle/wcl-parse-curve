@@ -5,6 +5,19 @@ import { DEMO_CODE } from "../search-input.ts";
 import { bossIcon, classColor, difficultyName, specIcon, tierColor, tierMetal, zoneIcon } from "../wow.ts";
 import { img, SEP, skeleton } from "./common.ts";
 
+/** Fight and player cards: selected or not. */
+const CARD_ON = "border-gold/80 bg-gold/10 ring-1 ring-gold/40";
+const CARD_OFF = "border-line bg-panel hover:border-zinc-500 hover:bg-panel-2";
+
+/** Move the highlight to the card whose `attr` is `value`, without rebuilding the list (and its icons). */
+export function selectCard(root: HTMLElement, attr: string, value: string | null) {
+  for (const el of root.querySelectorAll<HTMLElement>(`[${attr}]`)) {
+    const on = el.getAttribute(attr) === value;
+    el.classList.remove(...(on ? CARD_OFF : CARD_ON).split(" "));
+    el.classList.add(...(on ? CARD_ON : CARD_OFF).split(" "));
+  }
+}
+
 export function renderReportHeader(code: string, report: ReportResponse): string {
   const zone = report.zone;
   return `
@@ -43,9 +56,7 @@ export function renderFights(fights: Fight[], zoneId: number | undefined, select
     return `
       <button type="button" data-fight="${f.id}"
         class="flex items-center gap-3 rounded-md border p-2 pr-3 text-left transition ${
-          on
-            ? "border-gold/80 bg-gold/10 ring-1 ring-gold/40"
-            : "border-line bg-panel hover:border-zinc-500 hover:bg-panel-2"
+          on ? CARD_ON : CARD_OFF
         }">
         ${img(bossIcon(f.encounterId), "size-10", zoneId ? zoneIcon(zoneId) : undefined)}
         <div class="min-w-0">
@@ -102,9 +113,7 @@ export function renderPlayers(
       return `
         <button type="button" data-player="${esc(p.name)}"
           class="flex w-full items-center gap-3 rounded-md border p-2 pr-3 text-left transition ${
-            on
-              ? "border-gold/80 bg-gold/10 ring-1 ring-gold/40"
-              : "border-line bg-panel hover:border-zinc-500 hover:bg-panel-2"
+            on ? CARD_ON : CARD_OFF
           } ${mvp ? "border-t-2 border-t-gold" : ""}">
           ${img(specIcon(p.className, p.spec), "size-10 border-2", undefined, `border-color:${tierColor(parse)}`)}
           <div class="min-w-0 flex-1">
