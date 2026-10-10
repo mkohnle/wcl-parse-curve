@@ -3,6 +3,7 @@ import compression from "compression";
 import express from "express";
 import { config } from "./config.ts";
 import { api } from "./routes/index.ts";
+import { hasStore } from "./store.ts";
 
 const app = express();
 app.use(compression());
@@ -25,4 +26,5 @@ if (!config.dev) {
 
 app.listen(config.port, () => {
   console.log(config.dev ? `API on http://localhost:${config.port}` : `http://localhost:${config.port}`);
+  console.log(hasStore ? "Cache: memory + Redis" : "Cache: memory only");
 });

@@ -18,3 +18,8 @@ services:
         sync: false
       - key: WCL_CLIENT_SECRET
         sync: false
+      # optional: Upstash Redis, so the cache survives restarts and deploys
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false
