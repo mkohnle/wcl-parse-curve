@@ -64,7 +64,7 @@ export function renderRioGear(p: RioProfile): string {
   if (!p.gear.length) return "";
   return `
     <div class="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-line px-4 py-3">
-      ${p.itemLevel ? `<div class="shrink-0"><div class="label">Item level</div><div class="text-xl font-bold tabular-nums text-zinc-100">${p.itemLevel.toFixed(2)}</div></div>` : ""}
+      ${p.itemLevel ? `<div class="shrink-0"><div class="label">Item level</div><div class="text-xl font-bold tabular-nums text-zinc-100">${Math.floor(p.itemLevel)}</div></div>` : ""}
       <div class="flex flex-wrap gap-1.5">${p.gear.map(item).join("")}</div>
       ${talentsButton(p)}
     </div>`;
