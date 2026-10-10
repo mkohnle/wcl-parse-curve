@@ -7,6 +7,8 @@ type Boss = CharacterZone["bosses"][number];
 type Done = Boss & { best: number; median: number };
 
 const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+/** 87.36 -> "87.3", like WCL's averages */
+const oneDecimal = (v: number) => (Math.floor(v * 10) / 10).toFixed(1);
 
 /** How well (best parses), how steady (medians) and, for M+, how high (key levels). */
 export function renderZoneSummary(z: CharacterZone): string {
@@ -34,7 +36,7 @@ export function renderZoneSummary(z: CharacterZone): string {
       <div class="grid grid-cols-3 gap-4">
         ${stat(
           "Performance",
-          String(Math.floor(best)),
+          oneDecimal(best),
           z.mythicPlus
             ? "Average of the best parse per dungeon at its highest key, compared only with the same spec at the same key level"
             : "Average of the best parse per boss",
@@ -42,7 +44,7 @@ export function renderZoneSummary(z: CharacterZone): string {
         )}
         ${stat(
           "Consistency",
-          String(Math.floor(median)),
+          oneDecimal(median),
           "Average of the median parse. Close to Performance means steady, far below means big swings between runs.",
           tierColor(median),
         )}
@@ -69,7 +71,7 @@ export function renderZoneSummary(z: CharacterZone): string {
 
       <div class="relative mt-5 h-4">
         <div class="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full opacity-40" style="background:linear-gradient(90deg, ${TIER_STOPS})"></div>
-        <div class="absolute top-0 h-4 w-px bg-white/60" style="left:${best}%" title="Performance ${Math.floor(best)}"></div>
+        <div class="absolute top-0 h-4 w-px bg-white/60" style="left:${best}%" title="Performance ${oneDecimal(best)}"></div>
         ${done
           .map(
             (b) =>
