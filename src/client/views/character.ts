@@ -1,4 +1,10 @@
-import type { CharacterLog, CharacterResponse, CharacterSection, CharacterZone } from "../../shared/api.ts";
+import type {
+  CharacterLog,
+  CharacterResponse,
+  CharacterSection,
+  CharacterZone,
+  ZoneList,
+} from "../../shared/api.ts";
 import { compact, date, esc, spaced } from "../format.ts";
 import { bossIcon, classColor, classIcon, difficultyName, specIcon, tierColor } from "../wow.ts";
 import { renderZoneSummary } from "./character-summary.ts";
@@ -48,12 +54,38 @@ export const renderCharacterHeaderSkeleton = () => `
     <div class="flex-1 space-y-2">${skeleton("h-6 w-48")}${skeleton("h-4 w-36")}</div>
   </div>`;
 
-/** Raid / Mythic+ switch; only the selected part is loaded. */
-export function renderSectionToggle(selected: CharacterSection): string {
+/** Raid / Mythic+ switch, the raid or season (once the zone list is in), and for raids the difficulty shown. */
+export function renderSectionToggle(
+  selected: CharacterSection,
+  zones?: ZoneList | null,
+  zone?: number | null,
+  difficulty?: number | null,
+): string {
   const button = (section: CharacterSection, label: string) =>
     `<button type="button" data-section="${section}"
       class="btn ${section === selected ? "btn-on" : ""}">${label}</button>`;
-  return `<div class="flex gap-2">${button("raid", "Raid")}${button("mythicPlus", "Mythic+")}</div>`;
+  const list = zones?.[selected] ?? [];
+  const shown = zone ?? zones?.current[selected];
+  const difficulties = list.find((z) => z.id === shown)?.difficulties ?? [];
+  // one joined group with short labels: LFR | N | H | M
+  const short = (name: string) => (name === "LFR" ? name : name[0]);
+  const levels =
+    difficulties.length > 1
+      ? `<div class="flex">${difficulties
+          .map(
+            (d, i) =>
+              `<button type="button" data-difficulty-pick="${d.id}"
+                class="btn min-w-9 justify-center px-2 ${i ? "-ml-px rounded-l-none" : ""} ${i < difficulties.length - 1 ? "rounded-r-none" : ""} ${d.id === difficulty ? "btn-on relative z-10" : ""}">${esc(short(d.name))}</button>`,
+          )
+          .join("")}</div>`
+      : "";
+  const picker =
+    list.length > 1
+      ? `<select data-zone class="btn ml-auto" style="color-scheme:dark">
+          ${list.map((z) => `<option value="${z.id}" ${z.id === shown ? "selected" : ""}>${esc(z.name)}</option>`).join("")}
+        </select>`
+      : "";
+  return `<div class="flex flex-wrap items-center gap-2">${button("raid", "Raid")}${button("mythicPlus", "Mythic+")}${picker}${levels}</div>`;
 }
 
 const parseCell = (v: number | null, classes: string) =>

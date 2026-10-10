@@ -357,7 +357,15 @@ async function openCharacter() {
   try {
     const realm = matchRealms(await getRealms(region), player.realm)[0];
     if (!realm) throw new Error(`Unknown realm "${player.realm}"`);
-    navigate({ page: "character", name: player.name, realm: realm.slug, region, section: prefs.section() });
+    navigate({
+      page: "character",
+      name: player.name,
+      realm: realm.slug,
+      region,
+      section: prefs.section(),
+      zone: null,
+      difficulty: null,
+    });
   } catch (err) {
     setStatus(errorMessage(err), true);
   }

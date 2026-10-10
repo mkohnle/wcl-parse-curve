@@ -184,6 +184,21 @@ export interface CharacterZone {
   bosses: CharacterBoss[];
 }
 
+export interface ZoneOption {
+  id: number;
+  name: string;
+  /** raids only, e.g. 3 Normal, 4 Heroic, 5 Mythic */
+  difficulties: { id: number; name: string }[];
+}
+
+/** Raids and M+ seasons to pick on the character page, newest first. */
+export interface ZoneList {
+  raid: ZoneOption[];
+  mythicPlus: ZoneOption[];
+  /** the zone shown when none is picked */
+  current: { raid: number; mythicPlus: number };
+}
+
 export interface CharacterResponse {
   name: string;
   /** without spaces, e.g. "DeathKnight" */

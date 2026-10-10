@@ -96,6 +96,8 @@ export async function fetchCharacter(
   region: Region,
   zone: Zone | undefined,
   mythicPlus: boolean,
+  /** raid difficulty; null = the one WCL picks (the highest with kills) */
+  difficulty: number | null = null,
 ): Promise<{ character: CharacterResponse; runs: MythicPlusRuns }> {
   // healing classes also get hps parses; each boss then uses the metric of the spec played
   const dps = await query("dps");
@@ -136,7 +138,8 @@ export async function fetchCharacter(
   return { character, runs };
 
   async function query(metric: Metric): Promise<RawCharacter> {
-    const field = zone ? `zone: zoneRankings(zoneID: ${zone.id}, metric: ${metric})` : "";
+    const diff = difficulty ? `, difficulty: ${difficulty}` : "";
+    const field = zone ? `zone: zoneRankings(zoneID: ${zone.id}, metric: ${metric}${diff})` : "";
     const data = await gql<{ characterData: { character: RawCharacter | null } }>(
       `query Character($name: String!, $realm: String!, $region: String!) {
         characterData { character(name: $name, serverSlug: $realm, serverRegion: $region) {

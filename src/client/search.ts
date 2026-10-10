@@ -43,7 +43,15 @@ async function submit() {
         setStatus(`Unknown ${region} realm "${char.realm}".`, true);
         return;
       }
-      navigate({ page: "character", name: char.name, realm: realm.slug, region, section: prefs.section() });
+      navigate({
+        page: "character",
+        name: char.name,
+        realm: realm.slug,
+        region,
+        section: prefs.section(),
+        zone: null,
+        difficulty: null,
+      });
     } catch (e) {
       setStatus(errorMessage(e), true);
     }

@@ -1,5 +1,5 @@
-import type { CharacterResponse, Metric, RioProfile, TalentTree } from "../../shared/api.ts";
-import { getCharacter, getCharacterLogs, getRio, getTalentTree } from "../api.ts";
+import type { CharacterResponse, Metric, RioProfile, TalentTree, ZoneList } from "../../shared/api.ts";
+import { getCharacter, getCharacterLogs, getRio, getTalentTree, getZones } from "../api.ts";
 import { showBudget } from "../budget.ts";
 import { errorMessage, pageDom, setBusy, setStatus } from "../dom.ts";
 import { esc } from "../format.ts";
@@ -32,6 +32,8 @@ const head = root.querySelector("[data-head]") as HTMLElement;
 const body = root.querySelector("[data-body]") as HTMLElement;
 
 let character: CharacterResponse | null = null;
+/** Raids and seasons for the picker; kept across sections. */
+let zoneList: ZoneList | null = null;
 /** Raider.IO profile of the shown character, for the talents popup. */
 let rio: RioProfile | null = null;
 let shown: CharacterRoute | null = null;
@@ -56,19 +58,25 @@ const sameCharacter = (a: CharacterRoute | null, b: CharacterRoute) =>
 async function show(route: CharacterRoute, prev: CharacterRoute | null) {
   const gen = ++generation;
   const keepHeader = sameCharacter(prev, route) && character !== null;
+  const zones = getZones().catch(() => null);
   shown = route;
   prefs.setSection(route.section);
   setStatus("");
   if (!keepHeader) head.innerHTML = renderCharacterHeaderSkeleton();
-  body.innerHTML = `${renderSectionToggle(route.section)}${renderCharacterZoneSkeleton()}`;
+  body.innerHTML = `${renderSectionToggle(route.section, zoneList, route.zone)}${renderCharacterZoneSkeleton()}`;
   setBusy(true);
   try {
-    const c = await getCharacter(route.name, route.realm, route.region, route.section);
+    const [c, list] = await Promise.all([
+      getCharacter(route.name, route.realm, route.region, route.section, route.zone, route.difficulty),
+      zones,
+    ]);
     if (gen !== generation) return;
     character = c;
+    zoneList = list;
     head.innerHTML = renderCharacterHeader(c);
-    body.innerHTML = `${renderSectionToggle(route.section)}${renderCharacterZone(c)}`;
-    showRio(c, route, gen);
+    body.innerHTML = `${renderSectionToggle(route.section, list, route.zone, c.zone?.difficulty)}${renderCharacterZone(c)}`;
+    // Raider.IO's runs are for the current season only
+    showRio(c, route, gen, !list || c.zone?.id === list.current[route.section]);
     addRecent({
       kind: "char",
       name: c.name,
@@ -81,7 +89,7 @@ async function show(route: CharacterRoute, prev: CharacterRoute | null) {
     if (gen !== generation) return;
     setStatus(errorMessage(e), true);
     if (!keepHeader) head.innerHTML = "";
-    body.innerHTML = keepHeader ? renderSectionToggle(route.section) : "";
+    body.innerHTML = keepHeader ? renderSectionToggle(route.section, zoneList, route.zone) : "";
   } finally {
     setBusy(false);
     showBudget();
@@ -89,7 +97,7 @@ async function show(route: CharacterRoute, prev: CharacterRoute | null) {
 }
 
 /** Raider.IO: score in the header, best run per dungeon in the M+ rows. Optional: failures stay silent. */
-async function showRio(c: CharacterResponse, route: CharacterRoute, gen: number) {
+async function showRio(c: CharacterResponse, route: CharacterRoute, gen: number, currentSeason: boolean) {
   const p = await getRio(c.name, c.realm.slug, c.region).catch(() => null);
   if (!p || gen !== generation) return;
   const slot = (name: string) => head.querySelector<HTMLElement>(`[data-rio-${name}]`);
@@ -112,7 +120,7 @@ async function showRio(c: CharacterResponse, route: CharacterRoute, gen: number)
   const gear = slot("gear");
   if (gear) gear.innerHTML = renderRioGear(p);
   if (p.gear.length || p.talentTree.length) loadWowheadTooltips();
-  if (route.section !== "mythicPlus") return;
+  if (route.section !== "mythicPlus" || !currentSeason) return;
   for (const run of p.runs) {
     const key = dungeonKey(run.dungeon);
     const stars = body.querySelector<HTMLElement>(`[data-rio-stars="${key}"]`);
@@ -124,6 +132,13 @@ async function showRio(c: CharacterResponse, route: CharacterRoute, gen: number)
   }
 }
 
+root.addEventListener("change", (e) => {
+  const select = (e.target as HTMLElement).closest<HTMLSelectElement>("[data-zone]");
+  if (!select || !shown) return;
+  const id = Number(select.value);
+  navigate({ ...shown, zone: id === zoneList?.current[shown.section] ? null : id, difficulty: null });
+});
+
 root.addEventListener("click", async (e) => {
   const target = e.target as HTMLElement;
   if (target.closest("[data-show-talents]") && rio && character) {
@@ -133,9 +148,20 @@ root.addEventListener("click", async (e) => {
   const c = character;
   if (!shown) return;
 
+  const level = target.closest<HTMLElement>("[data-difficulty-pick]");
+  if (level) {
+    navigate({ ...shown, difficulty: Number(level.dataset.difficultyPick) });
+    return;
+  }
+
   const section = target.closest<HTMLElement>("[data-section]");
   if (section) {
-    navigate({ ...shown, section: section.dataset.section === "mythicPlus" ? "mythicPlus" : "raid" });
+    navigate({
+      ...shown,
+      section: section.dataset.section === "mythicPlus" ? "mythicPlus" : "raid",
+      zone: null,
+      difficulty: null,
+    });
     return;
   }
   if (!c) return;

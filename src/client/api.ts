@@ -13,6 +13,7 @@ import type {
   ReportResponse,
   RioProfile,
   TalentTree,
+  ZoneList,
 } from "../shared/api.ts";
 
 async function getJson<T>(
@@ -82,9 +83,26 @@ export const getDistribution = memo((q: DistributionQuery) =>
 
 export const getRealms = memo((region: Region) => getJson<Realm[]>("/api/realms", { region }));
 
-export const getCharacter = memo((name: string, realm: string, region: Region, section: CharacterSection) =>
-  getJson<CharacterResponse>("/api/character", { name, realm, region, section }),
+export const getCharacter = memo(
+  (
+    name: string,
+    realm: string,
+    region: Region,
+    section: CharacterSection,
+    zone: number | null,
+    difficulty: number | null,
+  ) =>
+    getJson<CharacterResponse>("/api/character", {
+      name,
+      realm,
+      region,
+      section,
+      ...(zone ? { zone } : {}),
+      ...(difficulty ? { difficulty } : {}),
+    }),
 );
+
+export const getZones = memo(() => getJson<ZoneList>("/api/zones", {}));
 
 export const getRio = memo((name: string, realm: string, region: Region) =>
   getJson<RioProfile>("/api/rio", { name, realm, region }),

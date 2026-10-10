@@ -20,6 +20,10 @@ export interface CharacterRoute {
   realm: string;
   region: Region;
   section: CharacterSection;
+  /** a past raid or M+ season, null = the current one */
+  zone: number | null;
+  /** raid difficulty, null = the highest with kills */
+  difficulty: number | null;
 }
 
 interface LandingRoute {
@@ -84,6 +88,8 @@ function toParams(route: Route): URLSearchParams {
   } else if (route.page === "character") {
     params.set("char", `${route.name}-${route.realm}-${route.region}`);
     if (route.section !== "raid") params.set("section", route.section);
+    if (route.zone) params.set("zone", String(route.zone));
+    if (route.difficulty) params.set("difficulty", String(route.difficulty));
   }
   return params;
 }
@@ -106,6 +112,8 @@ function readUrl(): Route {
       realm: char[2],
       region: char[3] as Region,
       section: params.get("section") === "mythicPlus" ? "mythicPlus" : "raid",
+      zone: Number(params.get("zone")) || null,
+      difficulty: Number(params.get("difficulty")) || null,
     };
   }
   const code = params.get("report");

@@ -33,6 +33,8 @@ dom.recent.addEventListener("click", (e) => {
       realm: it.realm,
       region: it.region as Region,
       section: prefs.section(),
+      zone: null,
+      difficulty: null,
     });
   }
 });

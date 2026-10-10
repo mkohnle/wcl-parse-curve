@@ -6,7 +6,7 @@ import { fetchRio } from "../raiderio.ts";
 import { talentTreeOf } from "../talent-trees.ts";
 import { fetchCharacter, fetchCharacterLogs, fetchRealms } from "../wcl/characters.ts";
 import { ensureBudget } from "../wcl/client.ts";
-import { currentZones, fetchLatestZones } from "../wcl/zones.ts";
+import { currentZones, fetchZones, zoneList } from "../wcl/zones.ts";
 
 export const characters = Router();
 
@@ -31,21 +31,41 @@ characters.get("/realms", async (req, res) => {
   );
 });
 
-/** ?section=raid|mythicPlus: only that part is loaded (and paid for). */
+const zones = () => cached("zones", 6 * HOUR, fetchZones);
+
+/** Raids and M+ seasons of the last two expansions. */
+characters.get("/zones", async (_req, res) => {
+  res.json(zoneList(await zones()));
+});
+
+/** ?section=raid|mythicPlus: only that part is loaded (and paid for). ?zone: a past raid or season, else the current. */
 characters.get("/character", async (req, res) => {
   const c = characterParams(req);
   const mythicPlus = req.query.section === "mythicPlus";
-  const key = `char|${c.region}|${c.realm}|${c.name.toLowerCase()}|${mythicPlus ? "mplus" : "raid"}`;
+  const all = await zones();
+  const list = mythicPlus ? all.mythicPlus : all.raid;
+  const zone =
+    list.find((z) => z.id === int(req.query.zone)) ?? currentZones(all)[mythicPlus ? "mythicPlus" : "raid"];
+  const wanted = int(req.query.difficulty);
+  const difficulty = !mythicPlus && zone?.difficulties.some((d) => d.id === wanted) ? wanted : null;
+  const key = `char|${c.region}|${c.realm}|${c.name.toLowerCase()}|${mythicPlus ? "mplus" : "raid"}|${zone?.id ?? 0}|${difficulty ?? 0}`;
+  // past zones no longer change
+  const ttl = zone?.frozen ? DAY : CHARACTER_TTL;
   res.json(
-    await cached(key, CHARACTER_TTL, async () => {
+    await cached(key, ttl, async () => {
       await ensureBudget(mythicPlus ? 12 : 2);
-      const zones = currentZones(await cached("zones", 6 * HOUR, fetchLatestZones));
-      const zone = mythicPlus ? zones.mythicPlus : zones.raid;
-      const { character, runs } = await fetchCharacter(c.name, c.realm, c.region, zone, mythicPlus);
+      const { character, runs } = await fetchCharacter(
+        c.name,
+        c.realm,
+        c.region,
+        zone,
+        mythicPlus,
+        difficulty,
+      );
       // the M+ runs came along: opening a dungeon is then free
-      const difficulty = character.zone?.difficulty ?? 0;
+      const zoneDifficulty = character.zone?.difficulty ?? 0;
       for (const [encounterId, r] of runs) {
-        prime(logsKey(c, encounterId, r.metric, difficulty, true), CHARACTER_TTL, r.logs);
+        prime(logsKey(c, encounterId, r.metric, zoneDifficulty, true), ttl, r.logs);
       }
       return character;
     }),
