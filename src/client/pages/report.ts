@@ -261,6 +261,13 @@ async function showAnalysis(
         run ? rankFromParse(run.todayParse, run.todayTotal) : logged,
       );
 
+  const logs = dist.points.flatMap(([rank, amount], i) => {
+    const log = dist.logs[i];
+    return log && (!share || dist.trees[i] === tree?.id) ? [{ rank, amount, log }] : [];
+  });
+  // the spec's #1 if its log is public; in a hero tree view the tree's best known log
+  const topLog = share ? (logs[0]?.log ?? null) : dist.points[0]?.[0] === 1 ? dist.logs[0] : null;
+
   analysisEl.innerHTML = renderAnalysis(
     player,
     curve,
@@ -270,11 +277,8 @@ async function showAnalysis(
     share ? (tree?.id ?? null) : null,
     metrics,
     f.players,
+    topLog,
   );
-  const logs = dist.points.flatMap(([rank, amount], i) => {
-    const log = dist.logs[i];
-    return log && (!share || dist.trees[i] === tree?.id) ? [{ rank, amount, log }] : [];
-  });
   mountChart(analysisEl.querySelector("#chart") as HTMLElement, dom.tooltip, curve, player, shownParse, logs);
 }
 

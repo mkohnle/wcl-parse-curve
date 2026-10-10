@@ -1,4 +1,5 @@
-import type { CurveMetric, HeroTree, Player } from "../../shared/api.ts";
+import type { CurveMetric, HeroTree, LogRef, Player } from "../../shared/api.ts";
+import { logUrl } from "../chart.ts";
 import type { Curve } from "../curve.ts";
 import { compact, esc, fmt, metricLabel, spaced } from "../format.ts";
 import type { Rank } from "../rank.ts";
@@ -110,6 +111,8 @@ export function renderAnalysis(
   metrics: CurveMetric[],
   /** everyone in the fight, for the group comparison (M+) */
   group: Player[],
+  /** the #1 log, linked from the #1 stat */
+  topLog: LogRef | null,
 ): string {
   // the log's parse; the curve is pinned to it
   const current = Math.floor(main.parse);
@@ -166,7 +169,12 @@ export function renderAnalysis(
           <div class="grid grid-cols-3 gap-3 border-t border-line pt-4">
             ${stat("Parses", compact(curve.total))}
             ${stat("Median", compact(curve.amountAt(50)))}
-            ${stat("#1", compact(curve.amountAtRank(1)))}
+            ${stat(
+              "#1",
+              topLog
+                ? `<a href="${logUrl(topLog, main.metric)}" target="_blank" rel="noreferrer" class="hover:text-gold">${compact(curve.amountAtRank(1))} ↗</a>`
+                : compact(curve.amountAtRank(1)),
+            )}
           </div>
         </aside>
       </div>

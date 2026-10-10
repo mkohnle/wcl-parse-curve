@@ -10,7 +10,7 @@ interface RealLog {
   log: LogRef;
 }
 
-const logUrl = (l: LogRef, metric: CurveMetric) =>
+export const logUrl = (l: LogRef, metric: CurveMetric) =>
   `https://www.warcraftlogs.com/reports/${l.code}#fight=${l.fight}&type=${metric === "hps" ? "healing" : "damage-done"}`;
 
 const W = 900;
