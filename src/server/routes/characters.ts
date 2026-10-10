@@ -1,8 +1,14 @@
 import { Router } from "express";
-import { type CharacterLog, CURVE_METRICS, type CurveMetric, type Region } from "../../shared/api.ts";
-import { cached, DAY, MINUTE, peek, prime } from "../cache.ts";
+import {
+  type CharacterLog,
+  type CharacterResponse,
+  CURVE_METRICS,
+  type CurveMetric,
+  type Region,
+} from "../../shared/api.ts";
+import { cached, DAY, HOUR, MINUTE, peek, prime } from "../cache.ts";
 import { characterParams, HttpError, int, region, str } from "../http.ts";
-import { fetchRio } from "../raiderio.ts";
+import { fetchLatestRun, fetchRio } from "../raiderio.ts";
 import { fetchCharacter, fetchCharacterLogs, fetchRealms, type MythicPlusRuns } from "../wcl/characters.ts";
 import { ensureBudget } from "../wcl/client.ts";
 import { currentZones, getZones, zoneList } from "../wcl/zones.ts";
@@ -10,6 +16,18 @@ import { currentZones, getZones, zoneList } from "../wcl/zones.ts";
 export const characters = Router();
 
 const CHARACTER_TTL = 30 * MINUTE;
+/** At least this often an M+ page is checked on WCL, even if Raider.IO shows no new run. */
+const RECHECK = 6 * HOUR;
+
+/** The last M+ load of a character, for cheap updates. */
+interface LastMythicPlus {
+  character: CharacterResponse;
+  runs: MythicPlusRuns;
+  /** Raider.IO's latest run then (see fetchLatestRun) */
+  latestRun: string | null;
+  /** when WCL was last asked in full */
+  at: number;
+}
 
 const logsKey = (
   c: { name: string; realm: string; region: Region },
@@ -50,12 +68,29 @@ characters.get("/character", async (req, res) => {
   const key = `char|${c.region}|${c.realm}|${c.name.toLowerCase()}|${mythicPlus ? "mplus" : "raid"}|${zone?.id ?? 0}|${difficulty ?? 0}`;
   // past zones no longer change
   const ttl = zone?.frozen ? DAY : CHARACTER_TTL;
-  // the runs of the last load, kept longer: an update then only refetches dungeons with new kills
-  const runsKey = `${key}|runs`;
+  // the last M+ load, kept longer: an update then only refetches dungeons with new kills,
+  // or nothing at all if Raider.IO shows no new run since
+  const lastKey = `${key}|last`;
+  // the M+ runs came along: opening a dungeon is then free
+  const primeLogs = (character: CharacterResponse, runs: MythicPlusRuns) => {
+    const zoneDifficulty = character.zone?.difficulty ?? 0;
+    for (const [encounterId, r] of runs) {
+      prime(logsKey(c, encounterId, r.metric, zoneDifficulty, true), ttl, r.logs);
+    }
+  };
   res.json(
     await cached(key, ttl, async () => {
+      const last = mythicPlus ? await peek<LastMythicPlus>(lastKey) : undefined;
+      // free check first (current season only: past ones don't change anyway)
+      const latestRun =
+        mythicPlus && !zone?.frozen
+          ? await fetchLatestRun(c.name, c.realm, c.region).catch(() => null)
+          : null;
+      if (last && latestRun !== null && latestRun === last.latestRun && Date.now() - last.at < RECHECK) {
+        primeLogs(last.character, last.runs);
+        return last.character;
+      }
       await ensureBudget(mythicPlus ? 12 : 2);
-      const previous = mythicPlus ? ((await peek<MythicPlusRuns>(runsKey)) ?? null) : null;
       const { character, runs } = await fetchCharacter(
         c.name,
         c.realm,
@@ -63,14 +98,12 @@ characters.get("/character", async (req, res) => {
         zone,
         mythicPlus,
         difficulty,
-        previous,
+        last?.runs ?? null,
       );
-      if (mythicPlus) prime(runsKey, DAY, runs);
-      // the M+ runs came along: opening a dungeon is then free
-      const zoneDifficulty = character.zone?.difficulty ?? 0;
-      for (const [encounterId, r] of runs) {
-        prime(logsKey(c, encounterId, r.metric, zoneDifficulty, true), ttl, r.logs);
-      }
+      // WCL was just asked in full; the next full check is due in RECHECK (Raider.IO can lag or miss a logged run)
+      if (mythicPlus)
+        prime(lastKey, DAY, { character, runs, latestRun, at: Date.now() } satisfies LastMythicPlus);
+      primeLogs(character, runs);
       return character;
     }),
   );

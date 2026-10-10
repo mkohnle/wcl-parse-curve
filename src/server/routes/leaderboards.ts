@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { CURVE_METRICS, type CurveMetric, type DistributionQuery } from "../../shared/api.ts";
-import { cached, DAY, HOUR } from "../cache.ts";
+import { cached, DAY } from "../cache.ts";
 import { getDistribution } from "../distribution.ts";
 import { HttpError, int, str } from "../http.ts";
 import { isFrozenEncounter } from "../wcl/zones.ts";
@@ -37,7 +37,7 @@ leaderboards.get("/distribution", async (req, res) => {
     q.className,
     q.spec,
   ].join("|");
-  // finished raids and seasons no longer change
-  const ttl = (await isFrozenEncounter(q.encounterId)) ? 7 * DAY : 6 * HOUR;
+  // the top 2000 barely move within a day; finished raids and seasons not at all
+  const ttl = (await isFrozenEncounter(q.encounterId)) ? 7 * DAY : DAY;
   res.json(await cached(key, ttl, () => getDistribution(q)));
 });

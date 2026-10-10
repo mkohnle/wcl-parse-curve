@@ -151,3 +151,26 @@ export async function fetchRio(name: string, realm: string, region: Region): Pro
     talentTree: toTalents(raw.talentLoadout?.loadout ?? []),
   };
 }
+
+/**
+ * When the character's latest M+ run was completed (ISO time), "" without runs this season,
+ * null if Raider.IO doesn't know the character. Free: a cheap check whether anything new was played.
+ */
+export async function fetchLatestRun(name: string, realm: string, region: Region): Promise<string | null> {
+  const qs = new URLSearchParams({
+    region: region.toLowerCase(),
+    realm,
+    name,
+    fields: "mythic_plus_recent_runs",
+  });
+  const raw = await get<{ mythic_plus_recent_runs?: { completed_at: string }[] }>(
+    `/characters/profile?${qs}`,
+  );
+  if (!raw) return null;
+  return (
+    (raw.mythic_plus_recent_runs ?? [])
+      .map((r) => r.completed_at)
+      .sort()
+      .at(-1) ?? ""
+  );
+}
